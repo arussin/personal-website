@@ -354,6 +354,9 @@ h1 {
 .event-tag.speaking {
     color: #FFB07C;
 }
+.event-tag.attending {
+    color: #2D9BBE;
+}
 .event-header {
     font-size: 1rem;
     color: var(--text-color);
