@@ -65,6 +65,9 @@ photo loading, and no-JavaScript content against the generated root pages.
 `node vista/tests/viewport-fit.cjs` checks full-height home framing on desktop,
 phones, shallow windows, and ultrawide displays, plus scrolling back from the
 expanded archive and responding to changes in mobile browser height.
+`node vista/tests/panel-layout.cjs` checks every animation frame for horizontal
+label movement when a classic scrollbar appears, including interrupted panel
+transitions and ordinary scrolling on narrow screens.
 
 ## Panorama preservation
 

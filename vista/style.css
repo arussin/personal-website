@@ -409,3 +409,9 @@ main{display:block}
 @media(max-height:560px){#adam-vista .va-identity{top:auto;bottom:12px}}
 @media(max-height:560px) and (min-width:700px){#adam-vista .va-credit{flex-direction:row;gap:18px;align-items:center}}
 #adam-vista{--va-terrain-height:var(--va-scene-height);--va-terrain-top:0px}
+
+/* A reading panel can add a classic scrollbar. Keep its appearance from
+   narrowing the scene, re-centering the text, or interrupting the open motion. */
+html{overflow-x:hidden;overflow-x:clip}
+main{overflow-x:clip}
+#adam-vista{width:100vw}
