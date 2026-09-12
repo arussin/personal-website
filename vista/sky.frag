@@ -7,6 +7,10 @@ uniform float u_cameraX;
 uniform sampler2D u_land;
 uniform sampler2D u_edge;
 uniform sampler2D u_air;
+uniform sampler2D u_left_land;
+uniform sampler2D u_right_land;
+uniform sampler2D u_side_edge;
+uniform vec4 u_extensions;
 const float PI=3.14159265359;
 float luminance(vec3 c){return dot(c,vec3(.2126,.7152,.0722));}
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
@@ -25,6 +29,27 @@ float bank(vec2 p,vec2 a,vec2 b,float width){
  float k=clamp((p.x-a.x)/(b.x-a.x),0.0,1.0);
  float endMask=smoothstep(a.x-.015,a.x+.02,p.x)*(1.0-smoothstep(b.x-.02,b.x+.015,p.x));
  return (1.0-smoothstep(width*.30,width,abs(p.y-mix(a.y,b.y,k))))*endMask;
+}
+// The existing center texture and its silhouette are never blended or warped.
+// Only the new exterior strips receive seam registration and edge matching.
+vec4 landscape(vec2 uv){
+ if(uv.x>=0.0&&uv.x<=1.0)return texture2D(u_land,uv);
+ bool left=uv.x<0.0;
+ float distance=left?-uv.x:uv.x-1.0;
+ float seam=1.0-smoothstep(0.0,.16,distance);
+ float offset=left?u_extensions.z:u_extensions.w;
+ vec2 sideUV=vec2(left?1.0+uv.x/u_extensions.x:(uv.x-1.0)/u_extensions.y,uv.y-offset*seam);
+ vec4 side=left?texture2D(u_left_land,sideUV):texture2D(u_right_land,sideUV);
+ vec3 join=texture2D(u_land,vec2(left?0.0:1.0,uv.y)).rgb;
+ side.rgb=mix(side.rgb,join,1.0-smoothstep(0.0,.018,distance));
+ return side;
+}
+float landscapeEdge(float x){
+ if(x>=0.0&&x<=1.0){vec4 edge=texture2D(u_edge,vec2(x,.5));return(edge.r*255.0*256.0+edge.g*255.0)/1024.0;}
+ bool left=x<0.0;
+ float t=left?1.0+x/u_extensions.x:(x-1.0)/u_extensions.y;
+ vec4 edge=texture2D(u_side_edge,vec2(clamp(t,0.0,1.0),left?.25:.75));
+ return(edge.r*255.0*256.0+edge.g*255.0)/1024.0+(left?u_extensions.z:u_extensions.w)*(1.0-smoothstep(0.0,.16,left?-x:x-1.0));
 }
 void main(){
  vec2 screen=vec2(gl_FragCoord.x/u_size.x,1.0-gl_FragCoord.y/u_size.y);
@@ -67,7 +92,7 @@ void main(){
  float cloudAlpha=min(.38,(veil.a*lifeA+veil2.a*lifeB)*(.23+.24*day));
  sky=mix(sky,mix(vec3(.57,.51,.62),vec3(.985,.936,.835),day),cloudAlpha);
 
- vec4 land=texture2D(u_land,uv);vec4 edge=texture2D(u_edge,vec2(uv.x,.5));
+ vec4 land=landscape(uv);
  float gust=breeze(u_time);
  // The approved cactus is part of this terrain. Flex its upper branches in
  // place; no new sprite, doubled plant, moving root, or rectangular overlay.
@@ -92,7 +117,7 @@ void main(){
   float sourceGate=smoothstep(.245,.325,luminance(flowing));
   land.rgb=mix(land.rgb,flowing,fogMaterial*sourceGate);
  }
- float skyline=(edge.r*255.0*256.0+edge.g*255.0)/1024.0;
+ float skyline=landscapeEdge(uv.x);
  land.a=smoothstep(skyline-.0005,skyline+.0005,uv.y);
  float value=luminance(land.rgb);
  float nearGround=smoothstep(.66,.81,uv.y);

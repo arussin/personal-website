@@ -62,3 +62,18 @@ shared email/credit timing, night-only connector lines, and the phone layout.
 `node vista/tests/production-routes.cjs` checks direct URLs, browser history,
 expanded event details, the Bar Freda footage link, moon layering, scrolling,
 photo loading, and no-JavaScript content against the generated root pages.
+`node vista/tests/viewport-fit.cjs` checks full-height home framing on desktop,
+phones, shallow windows, and ultrawide displays, plus scrolling back from the
+expanded archive and responding to changes in mobile browser height.
+
+## Panorama preservation
+
+The original center image, `assets/03cd3fed69d7.webp`, is immutable. Its Git blob
+is `e57f03afc33ac4e5b31bb3611b46160adad31831`. The viewport-height scene uses its
+existing coordinates; wider screens reveal new terrain outside the original
+image bounds. The generated side assets are separate textures. Their model-made
+copies of the center are not included, and seam alignment affects only the sides.
+`panorama-edges-v1.json` supplies terrain silhouettes so the scene's existing sky,
+moon, stars, and day/night lighting work across the extended landscape.
+The viewport check verifies both the original file hash and the rendered central
+terrain's position when moving from a 3:2 view to a 32:9 view.

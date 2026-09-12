@@ -2,6 +2,11 @@
 (() => {
 const root=document.getElementById('adam-vista');if(!root)return;
 const state={layout:'archive',surfaceOpacity:89,nameWidth:56};
+// The original 3:2 art retains its exact scale and central position. Additional
+// terrain is drawn outside its bounds; clipping and figures share these units.
+function landscapeFrame(width,height){
+ return {height,top:0,scale:height/1024};
+}
 const panel=root.querySelector('.va-reading'),home=root.querySelector('.va-home'),stage=root.querySelector('.va-stage');
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 const siteData=globalThis.vistaContent;
@@ -273,7 +278,7 @@ function createSkyLayout(root){
  const toggle=button('Arrange sky','va-arrange');toggle.setAttribute('aria-pressed','false');
  const direction=document.createElement('select');direction.setAttribute('aria-label','Star position for the selected link');
  for(const [value,label] of [['nw','Upper left'],['ne','Upper right'],['sw','Lower left'],['se','Lower right']]){const o=document.createElement('option');o.value=value;o.textContent=label;direction.append(o);}tools.append(direction);
- const reset=button('Reset','va-layout-reset');home.append(tools);
+ const reset=button('Reset','va-layout-reset');root.querySelector('.va-identity').append(tools);
  let editing=false,selected=items[0],drag=null,frame=0,time=0,daylight=0,disposed=false,skyline=null,getCamera=()=>.5;
  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
  const announce=text=>{root.querySelector('.va-announcement').textContent=text;};
@@ -311,8 +316,10 @@ function createSkyLayout(root){
    const sx=clamp(rawX,14-(r.left-wr.left),wr.width-14-(r.left-wr.left));
    let sy=rawY;
    if(skyline){
-    const u=(r.left-wr.left+sx-wr.width/2)/(wr.height*1.5)+getCamera(),column=clamp(Math.round(u*(skyline.length-1)),0,skyline.length-1);
-    const ceiling=skyline[column]/1024*wr.height-22-(r.top-wr.top);sy=Math.min(rawY,ceiling);
+    const terrain=landscapeFrame(wr.width,wr.height);
+    const u=(r.left-wr.left+sx-wr.width/2)/(terrain.height*1.5)+getCamera();
+    const ridge=typeof skyline==='function'?skyline(u):skyline[clamp(Math.round(u*(skyline.length-1)),0,skyline.length-1)]/1024;
+    const ceiling=terrain.top+ridge*terrain.height-22-(r.top-wr.top);sy=Math.min(rawY,ceiling);
    }
    item.hostX=sx-37;item.hostY=sy-30;item.endX=(left?4:r.width-4)-item.hostX;item.endY=(up?9:r.height-9)-item.hostY;
    item.host.style.left=(r.left-wr.left+item.hostX).toFixed(2)+'px';item.host.style.top=(r.top-wr.top+item.hostY).toFixed(2)+'px';
@@ -391,17 +398,23 @@ function createLivingVista({root,onLight,getSurfaceOpacity}){
  // A separate deterministic sequence leaves the existing celestial timings intact.
  const sand=Array.from({length:16},(_,i)=>({x:i<8?320+(i*67)%255:1214+((i-8)*39)%126,y:886+(i*23)%60,period:9.5+(i*1.71)%6,offset:(i*.173)%1,distance:35+(i*17)%35,lift:2+(i*7)%4,size:i%5===0?1.15:.8}));
  const images={},skyLinks=[...root.querySelectorAll('.va-sky-link')];let daylightInk=false,readingDaylightInk=null;
- skyLayout.setTerrain(assets.skyline,()=>cameraX);
- function image(src){return new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=new URL(src,runtimeBase).href;});}
+ let panorama=null;
+ function terrainEdge(u){
+  if(u>=0&&u<=1||!panorama)return assets.skyline[Math.round(clamp(u)*(assets.skyline.length-1))]/1024;
+  const left=u<0,side=panorama[left?'left':'right'],distance=left?-u:u-1,t=left?1+u/side.span:(u-1)/side.span;
+  return side.ridge[Math.round(clamp(t)*(side.ridge.length-1))]/1024+side.offset*(1-smooth(0,.16,distance));
+ }
+ skyLayout.setTerrain(terrainEdge,()=>cameraX);
+ function image(src){return new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=new URL(src+runtimeVersion,runtimeBase).href;});}
  const cloudNodes=[...root.querySelectorAll('.va-constellation')].map(host=>{const img=document.createElement('img');img.className='va-link-cloud';img.alt='';img.src=new URL(assets.cloud,runtimeBase).href;host.append(img);return img;});
  skyLayout.refresh();
  const uniforms={};
  function shader(type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){const message=gl.getShaderInfoLog(s);gl.deleteShader(s);throw new Error(message);}return s;}
- function texture(unit,uniform,source){
+ function texture(unit,uniform,source,textureWidth=assets.skyline.length,textureHeight=1){
   const t=gl.createTexture();gpuTextures.push(t);gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,t);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
-  if(source instanceof Uint8Array){gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,assets.skyline.length,1,0,gl.RGBA,gl.UNSIGNED_BYTE,source);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);}
+  if(source instanceof Uint8Array){gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,textureWidth,textureHeight,0,gl.RGBA,gl.UNSIGNED_BYTE,source);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);}
   else gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,source);
   if(uniform==='u_land')gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
   gl.uniform1i(gl.getUniformLocation(program,uniform),unit);
@@ -410,8 +423,9 @@ function createLivingVista({root,onLight,getSurfaceOpacity}){
   try{
    gl=surface.getContext('webgl',{alpha:false,antialias:false,depth:false,stencil:false,preserveDrawingBuffer:false,powerPreference:'low-power'});
    if(!gl)throw new Error('WebGL unavailable');
-   const loaded=await Promise.all([image(assets.land),image(assets.moon),image(assets.air),image(assets.plane),fetch(new URL('sky.frag'+runtimeVersion,runtimeBase)).then(r=>{if(!r.ok)throw new Error('Sky shader could not load');return r.text();})]);if(disposed)return;
+   const loaded=await Promise.all([image(assets.land),image(assets.moon),image(assets.air),image(assets.plane),fetch(new URL('sky.frag'+runtimeVersion,runtimeBase)).then(r=>{if(!r.ok)throw new Error('Sky shader could not load');return r.text();}),image('assets/panorama-left-v1.webp'),image('assets/panorama-right-v1.webp'),fetch(new URL('assets/panorama-edges-v1.json'+runtimeVersion,runtimeBase)).then(r=>{if(!r.ok)throw new Error('Panorama edges could not load');return r.json();})]);if(disposed)return;
    [images.land,images.moon,images.air,images.plane]=loaded;
+   panorama=loaded[7];panorama.left.offset=(assets.skyline[0]-panorama.left.ridge.at(-1))/1024;panorama.right.offset=(assets.skyline.at(-1)-panorama.right.ridge[0])/1024;
    const vertex=shader(gl.VERTEX_SHADER,'attribute vec2 a_position;void main(){gl_Position=vec4(a_position,0.0,1.0);}');
    const fragment=shader(gl.FRAGMENT_SHADER,loaded[4]);
    program=gl.createProgram();gl.attachShader(program,vertex);gl.attachShader(program,fragment);gl.linkProgram(program);gl.deleteShader(vertex);gl.deleteShader(fragment);
@@ -420,6 +434,13 @@ function createLivingVista({root,onLight,getSurfaceOpacity}){
    const location=gl.getAttribLocation(program,'a_position');gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,2,gl.FLOAT,false,0,0);
    const edge=new Uint8Array(assets.skyline.length*4);assets.skyline.forEach((y,i)=>{edge[i*4]=Math.floor(y/256);edge[i*4+1]=y%256;edge[i*4+3]=255;});
    texture(0,'u_land',images.land);texture(1,'u_air',images.air);texture(2,'u_edge',edge);
+   texture(3,'u_left_land',loaded[5]);texture(4,'u_right_land',loaded[6]);
+   const sideEdge=new Uint8Array(1536*2*4);
+   for(const [row,side] of [panorama.left,panorama.right].entries())for(let x=0;x<1536;x++){
+    const y=side.ridge[Math.round(x/1535*(side.ridge.length-1))],i=(row*1536+x)*4;sideEdge[i]=Math.floor(y/256);sideEdge[i+1]=y%256;sideEdge[i+3]=255;
+   }
+   texture(5,'u_side_edge',sideEdge,1536,2);
+   gl.uniform4f(gl.getUniformLocation(program,'u_extensions'),panorama.left.span,panorama.right.span,panorama.left.offset,panorama.right.offset);
    for(const key of ['u_size','u_phase','u_time','u_day','u_cameraX'])uniforms[key]=gl.getUniformLocation(program,key);
    ready=true;resize();paint(true);root.dataset.skyReady='true';wake();
   }catch(error){ready=false;root.dataset.skyReady='false';root.dataset.skyError=String(error.message||error);paused=true;syncPause();output.textContent='night';output.setAttribute('aria-label','Static night scene; animated sky unavailable in this browser');clockInput.disabled=true;speedSelect.disabled=true;pause.disabled=true;console.warn('Vista renderer unavailable:',error);}
@@ -433,7 +454,8 @@ function createLivingVista({root,onLight,getSurfaceOpacity}){
   surface.width=Math.round(width*ratio);surface.height=Math.round(height*ratio);fx.width=Math.round(width*ratio);fx.height=Math.round(height*ratio);
   moonSurface.width=surface.width;moonSurface.height=surface.height;
   skyClip=new Path2D();skyClip.moveTo(-height*2,-100);skyClip.lineTo(width+height*2,-100);
-  for(let i=assets.skyline.length-1;i>=0;i--)skyClip.lineTo(width/2+(i/(assets.skyline.length-1)-cameraX)*height*1.5,assets.skyline[i]/1024*height);
+  const terrain=landscapeFrame(width,height);
+  for(let x=width+2;x>=-2;x-=2)skyClip.lineTo(x,terrain.top+terrainEdge((x-width/2)/(terrain.height*1.5)+cameraX)*terrain.height);
   skyClip.closePath();if(gl)gl.viewport(0,0,surface.width,surface.height);if(ready){paint(true);wake();}
  }
  function luminance(c){return c.map(v=>{v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4);}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);}
@@ -484,6 +506,8 @@ function createLivingVista({root,onLight,getSurfaceOpacity}){
    item.host.style.setProperty('--va-connector-color','rgba(230,211,178,.72)');
   }
   root.style.setProperty('--va-ground-ink',rgb(groundInk));root.style.setProperty('--va-dock-ink',rgb(dockInk));root.style.setProperty('--va-ground-color',rgb(ground));
+  root.style.setProperty('--va-surround-sky',rgb(skyColor(0,day,altitude)));root.style.setProperty('--va-surround-horizon',rgb(skyColor(.54,day,altitude)));
+  root.style.setProperty('--va-surround-upper',rgb(skyColor(.25,day,altitude)));root.style.setProperty('--va-surround-mid',rgb(skyColor(.40,day,altitude)));
   root.style.setProperty('--va-rule','rgba('+color([196,179,155],[111,87,66],day).join(',')+',.23)');
   root.style.setProperty('--va-playing',rgb(legible(readingBg,[162,189,165],[55,108,72])));root.style.setProperty('--va-speaking',rgb(legible(readingBg,[215,185,133],[128,83,33])));root.style.setProperty('--va-attending',rgb(legible(readingBg,[167,187,207],[62,98,132])));
   root.style.setProperty('--va-night',night.toFixed(4));root.style.setProperty('--va-day',smooth(.12,.65,day).toFixed(4));root.style.setProperty('--va-cloud-light',(.8+day*.5).toFixed(3));root.style.colorScheme=day>.6?'light':'dark';onLight(day,altitude);
@@ -534,8 +558,8 @@ function createLivingVista({root,onLight,getSurfaceOpacity}){
   // Two short runs separated by watching pauses; feet follow distance traveled,
   // not a looping walk while stationary. Coordinates belong to the terrain art.
   const travel=smooth(.03,.20,t)*17+smooth(.48,.64,t)*19+smooth(.82,.98,t)*25;
-  const scale=height/1024,x=width/2+(lizard.x+travel-cameraX*1536)*scale;
-  const y=(lizard.y-Math.sin(travel/61*Math.PI)*3)*scale;
+  const terrain=landscapeFrame(width,height),scale=terrain.scale,x=width/2+(lizard.x+travel-cameraX*1536)*scale;
+  const y=terrain.top+(lizard.y-Math.sin(travel/61*Math.PI)*3)*scale;
   const alpha=smooth(0,.065,t)*(1-smooth(.94,1,t))*smooth(.12,.52,day)*.85;
   const tone=color([84,72,85],[94,94,66],day),light=color([119,99,107],[151,137,92],day);
   const stepping=(t>.03&&t<.20)||(t>.48&&t<.64)||(t>.82&&t<.98);
@@ -557,13 +581,13 @@ function createLivingVista({root,onLight,getSurfaceOpacity}){
  }
  function drawSand(g,day){
   const gust=(.26+.74*Math.pow(.5+.5*Math.sin(elapsed*.57-.70+Math.sin(elapsed*.071)*.28),1.5))*(.90+.10*Math.sin(elapsed*.113));
-  const scale=height/1024,ink=color([170,140,150],[224,188,138],day);
+  const terrain=landscapeFrame(width,height),scale=terrain.scale,ink=color([170,140,150],[224,188,138],day);
   g.fillStyle=rgb(ink);
   for(const grain of sand){
    const cycle=wrap(elapsed/grain.period+grain.offset);if(cycle>.46)continue;
    const t=cycle/.46,envelope=Math.pow(Math.sin(t*Math.PI),1.2);
    const x=width/2+(grain.x-cameraX*1536+t*grain.distance)*scale;
-   const y=(grain.y-Math.sin(t*Math.PI)*grain.lift)*scale;
+   const y=terrain.top+(grain.y-Math.sin(t*Math.PI)*grain.lift)*scale;
    if(x<0||x>width)continue;
    g.globalAlpha=envelope*(.10+gust*.34);g.fillRect(x,y,grain.size,grain.size);
   }

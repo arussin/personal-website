@@ -9,8 +9,10 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'vista'
 template = (SOURCE / 'index.html').read_text(encoding='utf-8')
 content = json.loads((SOURCE / 'content.js').read_text(encoding='utf-8').split('=', 1)[1].rstrip(';\n'))
-version = hashlib.sha256(b''.join((SOURCE / name).read_bytes().replace(b'\r\n',b'\n') for name in
-    ['index.html', 'app.js', 'style.css', 'content.js', 'sky.frag'])).hexdigest()[:12]
+version_files = [SOURCE / name for name in ['index.html', 'app.js', 'style.css', 'content.js', 'sky.frag']]
+version_files += sorted(path for path in (SOURCE / 'assets').iterdir() if path.is_file())
+version = hashlib.sha256(b''.join(path.read_bytes() if path.suffix in ['.webp', '.png'] else
+    path.read_bytes().replace(b'\r\n',b'\n') for path in version_files)).hexdigest()[:12]
 
 analytics = '''<script async src="https://www.googletagmanager.com/gtag/js?id=G-1J16K8YPDJ"></script>
   <script>
