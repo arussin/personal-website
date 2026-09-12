@@ -399,10 +399,16 @@ function createLivingVista({root,onLight,getSurfaceOpacity}){
  const sand=Array.from({length:16},(_,i)=>({x:i<8?320+(i*67)%255:1214+((i-8)*39)%126,y:886+(i*23)%60,period:9.5+(i*1.71)%6,offset:(i*.173)%1,distance:35+(i*17)%35,lift:2+(i*7)%4,size:i%5===0?1.15:.8}));
  const images={},skyLinks=[...root.querySelectorAll('.va-sky-link')];let daylightInk=false,readingDaylightInk=null;
  let panorama=null;
+ function registrationAt(side,y){
+  const points=side.registration;let k=0;while(k<points.length-2&&y>points[k+1][0])k++;
+  const a=points[k],b=points[k+1],t=clamp((y-a[0])/(b[0]-a[0]));
+  return a.slice(1).map((value,i)=>value+(b[i+1]-value)*t);
+ }
  function terrainEdge(u){
   if(u>=0&&u<=1||!panorama)return assets.skyline[Math.round(clamp(u)*(assets.skyline.length-1))]/1024;
-  const left=u<0,side=panorama[left?'left':'right'],distance=left?-u:u-1,t=left?1+u/side.span:(u-1)/side.span;
-  return side.ridge[Math.round(clamp(t)*(side.ridge.length-1))]/1024+side.offset*(1-smooth(0,.16,distance));
+  const left=u<0,side=panorama[left?'left':'right'],distance=left?-u:u-1,t=left?1+u/side.span:(u-1)/side.span,weight=1-smooth(0,.36,distance);
+  let y=.5;for(let i=0;i<3;i++){const offset=registrationAt(side,y*1024),x=t+offset[0]*weight/(side.span*1536);y=side.ridge[Math.round(clamp(x)*(side.ridge.length-1))]/1024-offset[1]*weight/1024;}
+  return y;
  }
  skyLayout.setTerrain(terrainEdge,()=>cameraX);
  function image(src){return new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=new URL(src+runtimeVersion,runtimeBase).href;});}
@@ -440,6 +446,25 @@ function createLivingVista({root,onLight,getSurfaceOpacity}){
     const y=side.ridge[Math.round(x/1535*(side.ridge.length-1))],i=(row*1536+x)*4;sideEdge[i]=Math.floor(y/256);sideEdge[i+1]=y%256;sideEdge[i+3]=255;
    }
    texture(5,'u_side_edge',sideEdge,1536,2);
+   const registration=new Uint8Array(1024*6*4);
+   for(const [row,side] of [panorama.left,panorama.right].entries())for(let y=0;y<1024;y++){
+    const offsets=registrationAt(side,y);
+    for(let axis=0;axis<2;axis++){const value=Math.round((offsets[axis]+128)*64),i=(row*1024+y)*4+axis*2;registration[i]=value>>8;registration[i+1]=value&255;}
+    for(let channel=0;channel<3;channel++){
+     const gain=offsets[2+channel],bias=offsets[5+channel];
+     registration[((row+2)*1024+y)*4+channel]=Math.round(gain/2*255);
+     registration[((row+4)*1024+y)*4+channel]=Math.round((bias/.5+.5)*255);
+    }
+   }
+   texture(6,'u_registration',registration,1024,6);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+   const correction=panorama.edgeCorrection;
+   const runs=Uint8Array.from(atob(correction.data),c=>c.charCodeAt(0)),field=new Uint8Array(correction.width*correction.height*4);let run=0;
+   for(let y=0;y<correction.height;y++)for(let channel=0;channel<3;channel++){
+    let x=0;while(x<correction.width){const count=runs[run++],value=runs[run++];if(!count||x+count>correction.width)throw new Error('Invalid panorama calibration');for(let end=x+count;x<end;x++){const i=(y*correction.width+x)*4;field[i+channel]=value;field[i+3]=255;}}
+   }
+   texture(7,'u_edge_correction',field,correction.width,correction.height);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
    gl.uniform4f(gl.getUniformLocation(program,'u_extensions'),panorama.left.span,panorama.right.span,panorama.left.offset,panorama.right.offset);
    for(const key of ['u_size','u_phase','u_time','u_day','u_cameraX'])uniforms[key]=gl.getUniformLocation(program,key);
    ready=true;resize();paint(true);root.dataset.skyReady='true';wake();

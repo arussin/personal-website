@@ -77,3 +77,11 @@ copies of the center are not included, and seam alignment affects only the sides
 moon, stars, and day/night lighting work across the extended landscape.
 The viewport check verifies both the original file hash and the rendered central
 terrain's position when moving from a 3:2 view to a 32:9 view.
+
+The panorama metadata also calibrates horizontal and vertical registration,
+color, and contrast at each terrain depth. A compact RGB run-encoded lighting
+lookup corrects residual edge differences. Fine corrections fade over a short
+distance; broad color differences fade more gradually. This preserves the side
+textures without stretching a single border column into a visible stripe.
+The terrain shader and CPU silhouette calculation use the same registration.
+Every correction is restricted to coordinates outside the approved center.

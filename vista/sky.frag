@@ -10,6 +10,8 @@ uniform sampler2D u_air;
 uniform sampler2D u_left_land;
 uniform sampler2D u_right_land;
 uniform sampler2D u_side_edge;
+uniform sampler2D u_registration;
+uniform sampler2D u_edge_correction;
 uniform vec4 u_extensions;
 const float PI=3.14159265359;
 float luminance(vec3 c){return dot(c,vec3(.2126,.7152,.0722));}
@@ -31,25 +33,45 @@ float bank(vec2 p,vec2 a,vec2 b,float width){
  return (1.0-smoothstep(width*.30,width,abs(p.y-mix(a.y,b.y,k))))*endMask;
 }
 // The existing center texture and its silhouette are never blended or warped.
-// Only the new exterior strips receive seam registration and edge matching.
+// Register each depth band independently: the generated overlap moved the far
+// ridges more than the foreground. A single vertical shift cannot join both.
+vec2 sideRegistration(float y,bool left){
+ vec4 encoded=texture2D(u_registration,vec2(clamp(y,0.0,1.0),(left?.5:1.5)/6.0))*255.0;
+ return vec2(encoded.r*256.0+encoded.g,encoded.b*256.0+encoded.a)/64.0-128.0;
+}
+vec2 sideCoordinates(vec2 uv,bool left){
+ float distance=left?-uv.x:uv.x-1.0;
+ float weight=1.0-smoothstep(0.0,.36,distance);
+ vec2 offset=sideRegistration(uv.y,left)*weight;
+ return vec2(left?1.0+uv.x/u_extensions.x:(uv.x-1.0)/u_extensions.y,uv.y)+offset/vec2((left?u_extensions.x:u_extensions.y)*1536.0,1024.0);
+}
 vec4 landscape(vec2 uv){
  if(uv.x>=0.0&&uv.x<=1.0)return texture2D(u_land,uv);
  bool left=uv.x<0.0;
  float distance=left?-uv.x:uv.x-1.0;
- float seam=1.0-smoothstep(0.0,.16,distance);
- float offset=left?u_extensions.z:u_extensions.w;
- vec2 sideUV=vec2(left?1.0+uv.x/u_extensions.x:(uv.x-1.0)/u_extensions.y,uv.y-offset*seam);
+ vec2 sideUV=sideCoordinates(uv,left);
  vec4 side=left?texture2D(u_left_land,sideUV):texture2D(u_right_land,sideUV);
+ vec3 gain=texture2D(u_registration,vec2(uv.y,(left?2.5:3.5)/6.0)).rgb*2.0;
+ vec3 bias=(texture2D(u_registration,vec2(uv.y,(left?4.5:5.5)/6.0)).rgb-.5)*.5;
+ side.rgb=mix(side.rgb,side.rgb*gain+bias,1.0-smoothstep(0.0,.36,distance));
+ vec2 correctionUV=vec2((clamp(distance*1536.0/384.0,0.0,1.0)*127.0+.5)/128.0,(clamp(uv.y,0.0,1.0)*511.0+.5+(left?0.0:512.0))/1024.0);
+ side.rgb+=(texture2D(u_edge_correction,correctionUV).rgb-.5)*.5*(1.0-smoothstep(380.0,384.0,distance*1536.0));
  vec3 join=texture2D(u_land,vec2(left?0.0:1.0,uv.y)).rgb;
- side.rgb=mix(side.rgb,join,1.0-smoothstep(0.0,.018,distance));
+ side.rgb=mix(side.rgb,join,1.0-smoothstep(0.0,.002,distance));
  return side;
 }
 float landscapeEdge(float x){
  if(x>=0.0&&x<=1.0){vec4 edge=texture2D(u_edge,vec2(x,.5));return(edge.r*255.0*256.0+edge.g*255.0)/1024.0;}
  bool left=x<0.0;
- float t=left?1.0+x/u_extensions.x:(x-1.0)/u_extensions.y;
- vec4 edge=texture2D(u_side_edge,vec2(clamp(t,0.0,1.0),left?.25:.75));
- return(edge.r*255.0*256.0+edge.g*255.0)/1024.0+(left?u_extensions.z:u_extensions.w)*(1.0-smoothstep(0.0,.16,left?-x:x-1.0));
+ float y=.50;
+ // Invert the same registration used for the terrain, keeping the silhouette
+ // attached to its rock rather than cutting a mismatched line through it.
+ for(int i=0;i<3;i++){
+  vec2 p=sideCoordinates(vec2(x,y),left);
+  vec4 edge=texture2D(u_side_edge,vec2(clamp(p.x,0.0,1.0),left?.25:.75));
+  y+=(edge.r*255.0*256.0+edge.g*255.0)/1024.0-p.y;
+ }
+ return y;
 }
 void main(){
  vec2 screen=vec2(gl_FragCoord.x/u_size.x,1.0-gl_FragCoord.y/u_size.y);
