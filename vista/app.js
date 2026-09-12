@@ -247,7 +247,7 @@ const linkConstellations=[
  // Photography: a loose, broken zigzag, seen below its inverted anchor.
  {stars:[[37,30],[55,9],[73,24],[98,14],[112,31],[88,43]],edges:[[0,1],[1,2],[2,3],[3,4],[4,5]]}
 ];
-root.querySelectorAll('.va-constellation canvas').forEach((chart,index)=>{
+function drawLinkConstellations(){root.querySelectorAll('.va-constellation canvas').forEach((chart,index)=>{
  const dpr=Math.min(devicePixelRatio||1,2),{stars,edges}=linkConstellations[index];
  chart.width=160*dpr;chart.height=100*dpr;
  const g=chart.getContext('2d');g.scale(dpr,dpr);g.strokeStyle='#dacebd60';g.lineWidth=.6;g.beginPath();
@@ -257,7 +257,8 @@ root.querySelectorAll('.va-constellation canvas').forEach((chart,index)=>{
   const size=i===2?2:1.35;g.fillStyle=i===2?'#e4d3b9':'#d8c8b2bb';
   g.fillRect(x-size/2,y-size/2,size,size);
  });
-});
+});}
+drawLinkConstellations();
 
 
 
@@ -380,7 +381,7 @@ function createLivingVista({root,onLight,getSurfaceOpacity}){
  const output=root.querySelector('.va-time-value'),pause=root.querySelector('.va-time-pause'),speedSelect=root.querySelector('.va-time-speed');
  const motionPreference=matchMedia('(prefers-reduced-motion: reduce)');
  let paused=motionPreference.matches,phase=.06,speed=1,throwVelocity=0,drag=null,frame=0,lastTime=0,lastPaint=0,lastUI=-1,elapsed=0,visible=true,disposed=false,ready=false,program=null;
- let rotorTarget=phase,rotorVelocity=0,suspended=false;
+ let rotorTarget=phase,rotorVelocity=0,suspended=false,initialization=0,assetLoad=null,resizeFrame=0,densityQuery=null,maxDrawSize=4096;
  let width=1024,height=700,ratio=1,cameraX=.5,gl=null,fxContext=fx.getContext('2d'),lastTheme='',lastClock='',skyClip=null,lastAccentPaint=0;
  const abort=new AbortController(),observers=[],gpuTextures=[];
  const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x)),wrap=x=>((x%1)+1)%1;
@@ -426,12 +427,18 @@ function createLivingVista({root,onLight,getSurfaceOpacity}){
   gl.uniform1i(gl.getUniformLocation(program,uniform),unit);
  }
  async function initialize(){
+  const attempt=++initialization;
   try{
    gl=surface.getContext('webgl',{alpha:false,antialias:false,depth:false,stencil:false,preserveDrawingBuffer:false,powerPreference:'low-power'});
    if(!gl)throw new Error('WebGL unavailable');
-   const loaded=await Promise.all([image(assets.land),image(assets.moon),image(assets.air),image(assets.plane),fetch(new URL('sky.frag'+runtimeVersion,runtimeBase)).then(r=>{if(!r.ok)throw new Error('Sky shader could not load');return r.text();}),image('assets/panorama-left-v1.webp'),image('assets/panorama-right-v1.webp'),fetch(new URL('assets/panorama-edges-v1.json'+runtimeVersion,runtimeBase)).then(r=>{if(!r.ok)throw new Error('Panorama edges could not load');return r.json();})]);if(disposed)return;
+   if(gl.isContextLost())return;
+   // A monitor/GPU switch can interrupt setup, including an earlier recovery.
+   // Keep decoded artwork and let only the current, live context finish setup.
+   assetLoad??=Promise.all([image(assets.land),image(assets.moon),image(assets.air),image(assets.plane),fetch(new URL('sky.frag'+runtimeVersion,runtimeBase)).then(r=>{if(!r.ok)throw new Error('Sky shader could not load');return r.text();}),image('assets/panorama-left-v1.webp'),image('assets/panorama-right-v1.webp'),fetch(new URL('assets/panorama-edges-v1.json'+runtimeVersion,runtimeBase)).then(r=>{if(!r.ok)throw new Error('Panorama edges could not load');return r.json();})]).catch(error=>{assetLoad=null;throw error;});
+   const loaded=await assetLoad;if(disposed||attempt!==initialization||gl.isContextLost())return;
+   maxDrawSize=Math.min(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),...gl.getParameter(gl.MAX_VIEWPORT_DIMS));
    [images.land,images.moon,images.air,images.plane]=loaded;
-   panorama=loaded[7];panorama.left.offset=(assets.skyline[0]-panorama.left.ridge.at(-1))/1024;panorama.right.offset=(assets.skyline.at(-1)-panorama.right.ridge[0])/1024;
+   panorama=loaded[7];panorama.left.offset=(assets.skyline[0]-panorama.left.ridge.at(-1))/1024;panorama.right.offset=(assets.skyline.at(-1)-panorama.right.ridge[0])/1024;skyClip=null;
    const vertex=shader(gl.VERTEX_SHADER,'attribute vec2 a_position;void main(){gl_Position=vec4(a_position,0.0,1.0);}');
    const fragment=shader(gl.FRAGMENT_SHADER,loaded[4]);
    program=gl.createProgram();gl.attachShader(program,vertex);gl.attachShader(program,fragment);gl.linkProgram(program);gl.deleteShader(vertex);gl.deleteShader(fragment);
@@ -467,22 +474,45 @@ function createLivingVista({root,onLight,getSurfaceOpacity}){
    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
    gl.uniform4f(gl.getUniformLocation(program,'u_extensions'),panorama.left.span,panorama.right.span,panorama.left.offset,panorama.right.offset);
    for(const key of ['u_size','u_phase','u_time','u_day','u_cameraX'])uniforms[key]=gl.getUniformLocation(program,key);
-   ready=true;resize();paint(true);root.dataset.skyReady='true';wake();
-  }catch(error){ready=false;root.dataset.skyReady='false';root.dataset.skyError=String(error.message||error);paused=true;syncPause();output.textContent='night';output.setAttribute('aria-label','Static night scene; animated sky unavailable in this browser');clockInput.disabled=true;speedSelect.disabled=true;pause.disabled=true;console.warn('Vista renderer unavailable:',error);}
+   if(disposed||attempt!==initialization||gl.isContextLost())return;
+   ready=true;delete root.dataset.skyError;clockInput.disabled=speedSelect.disabled=pause.disabled=false;output.removeAttribute('aria-label');lastClock='';
+   resize();root.dataset.skyReady='true';wake();
+  }catch(error){
+   if(disposed||attempt!==initialization||gl?.isContextLost())return;
+   ready=false;stopLoop();root.dataset.skyReady='false';root.dataset.skyError=String(error.message||error);output.textContent='night';output.setAttribute('aria-label','Static night scene; animated sky unavailable in this browser');clockInput.disabled=true;speedSelect.disabled=true;pause.disabled=true;console.warn('Vista renderer unavailable:',error);
+  }
  }
  // Keep the same central valley at every width; narrower views crop both sides
  // equally instead of traveling toward the foreground cactus.
- function dimensions(){const bounds=world.getBoundingClientRect();width=Math.max(1,bounds.width);height=Math.max(1,bounds.height);ratio=Math.min(devicePixelRatio||1,2,Math.sqrt(5000000/(width*height)));cameraX=.5;root.style.setProperty('--va-camera-shift','0px');}
+ function dimensions(){const bounds=world.getBoundingClientRect();width=Math.max(1,bounds.width);height=Math.max(1,bounds.height);ratio=Math.min(devicePixelRatio||1,2,Math.sqrt(5000000/(width*height)),maxDrawSize/width,maxDrawSize/height);cameraX=.5;root.style.setProperty('--va-camera-shift','0px');}
  function resize(){
+  if(disposed)return;
   const oldWidth=width,oldHeight=height;dimensions();
-  if(drag&&(Math.abs(width-oldWidth)>.5||Math.abs(height-oldHeight)>.5))cancelDrag();
-  surface.width=Math.round(width*ratio);surface.height=Math.round(height*ratio);fx.width=Math.round(width*ratio);fx.height=Math.round(height*ratio);
-  moonSurface.width=surface.width;moonSurface.height=surface.height;
-  skyClip=new Path2D();skyClip.moveTo(-height*2,-100);skyClip.lineTo(width+height*2,-100);
-  const terrain=landscapeFrame(width,height);
-  for(let x=width+2;x>=-2;x-=2)skyClip.lineTo(x,terrain.top+terrainEdge((x-width/2)/(terrain.height*1.5)+cameraX)*terrain.height);
-  skyClip.closePath();if(gl)gl.viewport(0,0,surface.width,surface.height);if(ready){paint(true);wake();}
+  const changed=Math.abs(width-oldWidth)>.01||Math.abs(height-oldHeight)>.01;
+  if(drag&&changed)cancelDrag();
+  const pixelWidth=Math.max(1,Math.round(width*ratio)),pixelHeight=Math.max(1,Math.round(height*ratio));
+  // Setting either dimension clears a canvas and reallocates its backing store.
+  // Coalesce resize notifications and leave unchanged buffers alone.
+  for(const canvas of [surface,fx,moonSurface]){
+   if(canvas.width!==pixelWidth)canvas.width=pixelWidth;
+   if(canvas.height!==pixelHeight)canvas.height=pixelHeight;
+  }
+  if(changed||!skyClip){
+   skyClip=new Path2D();skyClip.moveTo(-height*2,-100);skyClip.lineTo(width+height*2,-100);
+   const terrain=landscapeFrame(width,height);
+   for(let x=width+2;x>=-2;x-=2)skyClip.lineTo(x,terrain.top+terrainEdge((x-width/2)/(terrain.height*1.5)+cameraX)*terrain.height);
+   skyClip.closePath();
+  }
+  if(gl&&!gl.isContextLost())gl.viewport(0,0,surface.width,surface.height);
+  if(ready){paint(true);wake();}
  }
+ function scheduleResize(){if(!resizeFrame&&!disposed)resizeFrame=requestAnimationFrame(()=>{resizeFrame=0;resize();});}
+ function watchDensity(){
+  densityQuery?.removeEventListener('change',densityChanged);
+  densityQuery=matchMedia('(resolution: '+(devicePixelRatio||1)+'dppx)');
+  densityQuery.addEventListener('change',densityChanged);
+ }
+ function densityChanged(){watchDensity();drawLinkConstellations();scheduleResize();}
  function luminance(c){return c.map(v=>{v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4);}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);}
  function contrast(a,b){const x=luminance(a),y=luminance(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
  // Keep a stable polarity around twilight; the shared CSS palette eases its
@@ -720,18 +750,20 @@ if(new URLSearchParams(location.search).has('debug-motion')){
  function setTime(value){cancelDrag();phase=wrap(value);rotorTarget=phase;rotorVelocity=0;throwVelocity=0;paint(true);wake();}
  on(clockInput,'keydown',event=>{const steps={ArrowLeft:-1/144,ArrowDown:-1/144,ArrowRight:1/144,ArrowUp:1/144,PageDown:-1/24,PageUp:1/24};if(event.key in steps){event.preventDefault();setTime(phase+steps[event.key]);}else if(event.key==='Home'||event.key==='End'){event.preventDefault();setTime(event.key==='Home'?0:.5);}});
  on(clockInput,'input',()=>{if(!drag)setTime(Number(clockInput.value));});
- on(document,'visibilitychange',()=>{if(document.hidden){cancelDrag();stopLoop();}else wake();});
+ on(document,'visibilitychange',()=>{if(document.hidden){cancelDrag();stopLoop();}else{scheduleResize();wake();}});
  on(motionPreference,'change',()=>{paused=motionPreference.matches;syncPause();});
  on(root,'vista-design-change',()=>{paint(true);wake();});
- on(surface,'webglcontextlost',event=>{event.preventDefault();ready=false;cancelDrag();stopLoop();root.dataset.skyReady='false';});
+ on(surface,'webglcontextlost',event=>{event.preventDefault();initialization++;ready=false;cancelDrag();stopLoop();root.dataset.skyReady='false';});
  on(surface,'webglcontextrestored',()=>{program=null;gpuTextures.length=0;initialize();});
- const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(world);observers.push(resizeObserver);
+ const resizeObserver=new ResizeObserver(scheduleResize);resizeObserver.observe(world);observers.push(resizeObserver);
+ on(window,'resize',scheduleResize);on(window,'focus',()=>{scheduleResize();wake();});
+ watchDensity();
  const intersection=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;if(!visible)stopLoop();else wake();});intersection.observe(root);observers.push(intersection);
- function destroy(){disposed=true;cancelAnimationFrame(frame);abort.abort();observers.forEach(o=>o.disconnect());if(gl){gpuTextures.forEach(t=>gl.deleteTexture(t));if(program)gl.deleteProgram(program);}}
+ function destroy(){disposed=true;initialization++;cancelAnimationFrame(frame);cancelAnimationFrame(resizeFrame);densityQuery?.removeEventListener('change',densityChanged);abort.abort();observers.forEach(o=>o.disconnect());if(gl){gpuTextures.forEach(t=>gl.deleteTexture(t));if(program)gl.deleteProgram(program);}}
  // A browser may preserve this document for Back/Forward or preview restoration.
  // Suspend a preserved page; destroying its listeners makes it permanently inert.
- on(window,'pagehide',event=>{if(event.persisted){suspended=true;cancelDrag();stopLoop();}else destroy();});
- on(window,'pageshow',()=>{if(disposed)return;suspended=false;lastTime=0;resize();wake();});
+ on(window,'pagehide',event=>{if(event.persisted){suspended=true;cancelDrag();stopLoop();cancelAnimationFrame(resizeFrame);resizeFrame=0;}else destroy();});
+ on(window,'pageshow',()=>{if(disposed)return;suspended=false;lastTime=0;watchDensity();drawLinkConstellations();resize();wake();});
  syncPause();initialize();
  recordMotion("initialization");
  return{destroy};

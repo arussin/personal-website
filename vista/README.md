@@ -68,6 +68,11 @@ expanded archive and responding to changes in mobile browser height.
 `node vista/tests/panel-layout.cjs` checks every animation frame for horizontal
 label movement when a classic scrollbar appears, including interrupted panel
 transitions and ordinary scrolling on narrow screens.
+`node vista/tests/display-resize.cjs` checks monitor pixel-density changes,
+rapid resizing, GPU resets during asset loading and playback, restored controls,
+actual painted terrain pixels, and preservation of an intentional pause. It uses
+Chrome's device-metrics emulation and WebGL context-loss extension; physical
+multi-monitor/GPU migration still depends on the visitor's browser and driver.
 
 ## Panorama preservation
 
