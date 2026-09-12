@@ -65,9 +65,12 @@ photo loading, and no-JavaScript content against the generated root pages.
 `node vista/tests/viewport-fit.cjs` checks full-height home framing on desktop,
 phones, shallow windows, and ultrawide displays, plus scrolling back from the
 expanded archive and responding to changes in mobile browser height.
+The scene fills the viewport down to 600px tall (660px at phone widths), then
+uses normal page scrolling so its labels and controls no longer crowd together.
 `node vista/tests/panel-layout.cjs` checks every animation frame for horizontal
 label movement when a classic scrollbar appears, including interrupted panel
-transitions and ordinary scrolling on narrow screens.
+transitions and ordinary scrolling on narrow screens, including opening and
+closing both sections from a scrolled, minimum-height home scene.
 `node vista/tests/display-resize.cjs` checks monitor pixel-density changes,
 rapid resizing, GPU resets during asset loading and playback, restored controls,
 actual painted terrain pixels, and preservation of an intentional pause. It uses

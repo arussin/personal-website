@@ -71,6 +71,10 @@ function animateStage(from,to,duration){
  if(reduced.matches||Math.abs(from-to)<1)return null;
  return stage.animate([{height:from+'px'},{height:to+'px'}],{duration,easing:panelEase,fill:'both'});
 }
+function showSceneTop(){
+ const top=Math.max(0,scrollY+root.getBoundingClientRect().top);
+ if(Math.abs(scrollY-top)>1)window.scrollTo({top,behavior:reduced.matches?'instant':'smooth'});
+}
 function setPanelContent(view){
  eventHost.hidden=view!=='events';photoHost.hidden=view!=='photography';
  root.querySelector('.va-heading h2').textContent=view==='events'?'Events':'Photography';
@@ -88,6 +92,7 @@ async function open(view,trigger,{instant=false}={}){
  stopPanelMotion();
  if(trigger?.classList.contains('va-sky-link'))lastLink=trigger;
  current=view;home.inert=true;panel.inert=false;panel.hidden=false;root.dataset.open='true';
+ if(wasHome&&!instant)showSceneTop();
  if(!wasHome&&!reduced.matches&&!instant){
   contentMotion=panelContent.animate([{opacity:1},{opacity:0}],{duration:110,fill:'both'});
   try{await contentMotion.finished;}catch{}if(token!==transition)return;
@@ -113,6 +118,7 @@ async function close(){
  const token=++transition,before=stage.getBoundingClientRect().height,visual=getComputedStyle(panel);
  const from={opacity:visual.opacity,transform:visual.transform==='none'?'translateY(0)':visual.transform};
  stopPanelMotion();current='home';panel.inert=true;root.dataset.open='false';
+ showSceneTop();
  if(!reduced.matches){
   stageMotion=animateStage(before,home.getBoundingClientRect().height,520);
   panelMotion=panel.animate([from,{opacity:0,transform:'translateY(12px)'}],{duration:440,easing:panelEase,fill:'both'});

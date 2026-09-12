@@ -49,7 +49,28 @@ const {chromium}=require(process.env.VISTA_PLAYWRIGHT_MODULE||'playwright');
   assert.ok(await page.evaluate(()=>scrollY>0),'reading content still scrolls');
   await page.evaluate(()=>scrollTo(100,scrollY));
   assert.equal(await page.evaluate(()=>scrollX),0,'no horizontal scrolling');
+  // A short viewport scrolls through a minimum-height scene. Both panels must
+  // still reveal their header and return to reachable navigation when closed.
+  await page.locator('.va-close').click();await page.waitForTimeout(700);
+  for(const [width,height] of [[1280,340],[390,400]]){
+   await page.setViewportSize({width,height});
+   await page.waitForTimeout(200);
+   const minimum=width===390?660:600;
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight),minimum);
+   await page.locator('.va-layout-tools').scrollIntoViewIfNeeded();
+   assert.ok(await page.evaluate(()=>scrollY>0),'short home can scroll to Arrange sky');
+   for(const view of ['events','photography']){
+    await page.locator('.va-'+view).click();await page.waitForTimeout(750);
+    assert.equal(await page.evaluate(()=>scrollY),0,'opening '+view+' reveals the panel header');
+    await page.locator('.va-window-foot').scrollIntoViewIfNeeded();
+    assert.ok(await page.evaluate(()=>scrollY>0),view+' content still scrolls');
+    await page.keyboard.press('Escape');await page.waitForTimeout(750);
+    assert.equal(await page.evaluate(()=>scrollY),0,'closing '+view+' returns to the sky navigation');
+    assert.equal(await page.locator('.va-reading').isVisible(),false);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight),minimum);
+   }
+  }
   assert.deepEqual(errors,[]);
-  console.log('PASS reading scroll and narrow layout');
+  console.log('PASS reading scroll, narrow layout, and short-window navigation for both panels');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1});

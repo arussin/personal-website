@@ -398,16 +398,15 @@ main{display:block}
 .no-script{color:#eee5d1;padding:24px;line-height:1.7}
 .no-script a{color:inherit}
 
-/* Home fills the visible browser, including changes to mobile browser chrome.
-   Reading pages retain their natural height and normal document scrolling. */
-#adam-vista{--va-scene-height:100vh;--va-terrain-height:max(var(--va-scene-height),66.666667cqw);--va-terrain-top:calc((var(--va-scene-height) - var(--va-terrain-height)) * .55);background-color:var(--va-ground-color,#6d586c);background-image:linear-gradient(var(--va-surround-sky,#2c2735),var(--va-surround-upper,#332c3c) 25%,var(--va-surround-mid,#4b3f53) 40%,var(--va-surround-horizon,#67546d) 54%,var(--va-ground-color,#6d586c));background-size:100% var(--va-scene-height);background-repeat:no-repeat}
-@supports(height:100dvh){#adam-vista{--va-scene-height:100dvh}}
+/* Fill the browser until the composition reaches its comfortable minimum.
+   Short windows then scroll; reading pages still keep their natural height. */
+#adam-vista{--va-scene-min:600px;--va-scene-height:max(var(--va-scene-min),100vh);--va-terrain-height:max(var(--va-scene-height),66.666667cqw);--va-terrain-top:calc((var(--va-scene-height) - var(--va-terrain-height)) * .55);background-color:var(--va-ground-color,#6d586c);background-image:linear-gradient(var(--va-surround-sky,#2c2735),var(--va-surround-upper,#332c3c) 25%,var(--va-surround-mid,#4b3f53) 40%,var(--va-surround-horizon,#67546d) 54%,var(--va-ground-color,#6d586c));background-size:100% var(--va-scene-height);background-repeat:no-repeat}
+@supports(height:100dvh){#adam-vista{--va-scene-height:max(var(--va-scene-min),100dvh)}}
+@media(max-width:460px){#adam-vista{--va-scene-min:660px}}
 #adam-vista .va-stage{width:100%;margin-inline:auto;container-type:inline-size}
 #adam-vista .va-name{width:min(530px,calc(100% - 56px),max(calc(var(--va-name-width) - 8%),360px),calc(var(--va-scene-height) * .62))}
 #adam-vista:not([data-sky-ready=true]) .va-landscape{top:var(--va-terrain-top);width:calc(var(--va-terrain-height) * 1.5);height:var(--va-terrain-height);background-size:100% 100%}
 #adam-vista .va-layout-tools{position:static;transform:none;margin-top:clamp(8px,calc((var(--va-scene-height) - 650px) * .28),80px)}
-@media(max-height:560px){#adam-vista .va-identity{top:auto;bottom:12px}}
-@media(max-height:560px) and (min-width:700px){#adam-vista .va-credit{flex-direction:row;gap:18px;align-items:center}}
 #adam-vista{--va-terrain-height:var(--va-scene-height);--va-terrain-top:0px}
 
 /* A reading panel can add a classic scrollbar. Keep its appearance from

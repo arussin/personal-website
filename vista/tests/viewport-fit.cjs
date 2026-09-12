@@ -24,23 +24,24 @@ const {chromium} = require(process.env.VISTA_PLAYWRIGHT_MODULE || 'playwright');
           stars: [...document.querySelectorAll('.va-constellation b')].map(el => el.getBoundingClientRect().toJSON())};
       });
       assert.equal(sizes.documentWidth, sizes.width, label + ': no horizontal overflow');
-      assert.equal(sizes.documentHeight, sizes.height, label + ': no scrollbar or unused bottom area');
+      const sceneHeight=Math.max(sizes.width<=460?660:600,sizes.height);
+      assert.equal(sizes.documentHeight, sceneHeight, label + ': scroll only below the comfortable scene height');
       assert.equal(sizes.scrollY, 0, label + ': home begins at the top');
       for (const layer of sizes.layers) {
-        assert.ok(Math.abs(layer.height - sizes.height) < 1, label + ': every scene layer fills the viewport');
+        assert.ok(Math.abs(layer.height - sceneHeight) < 1, label + ': every scene layer shares the same height');
       }
       for (const control of sizes.controls) {
-        assert.ok(control.top >= 0 && control.bottom <= sizes.height + 1, label + ': content stays visible');
+        assert.ok(control.top >= 0 && control.bottom <= sceneHeight + 1, label + ': content stays within the scrollable scene');
       }
       assert.ok(sizes.credit.bottom <= sizes.tools.top, label + ': contact and arrangement controls do not overlap');
       assert.equal(sizes.layers[1].width, sizes.width, label + ': panorama fills the available width');
       for (const star of sizes.stars) {
-        assert.ok(star.top >= 0 && star.bottom < sizes.height * .65, label + ': annotated stars stay in the sky');
+        assert.ok(star.top >= 0 && star.bottom < sceneHeight * .65, label + ': annotated stars stay in the sky');
       }
       console.log('PASS ' + label);
     };
     for (const [width, height] of [[1440,900], [1920,1080], [1366,768], [1280,600], [2560,1080], [2560,720],
-                                   [390,844], [375,667], [430,932], [844,390], [390,744], [390,844]]) {
+                                   [390,844], [375,667], [430,932], [844,390], [1440,300], [390,400], [390,744], [390,844]]) {
       await page.setViewportSize({width, height});
       await page.waitForTimeout(160);
       await fit(width + '×' + height);
