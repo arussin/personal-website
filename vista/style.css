@@ -332,10 +332,11 @@
 #adam-vista .va-sky-nav{inset:0 auto auto 50%;width:min(86%,800px);height:100%;transform:translateX(-50%);transition:opacity .5s ease}
 #adam-vista[data-open=true] .va-sky-nav{transform:translateX(-50%)}
 #adam-vista .va-sky-link{transform:translateX(-50%);font-size:clamp(17px,2.35cqw,24px)}
-#adam-vista .va-github{left:23%;top:24%}
-#adam-vista .va-linkedin{left:35%;top:37%}
-#adam-vista .va-events{left:77%;top:24.5%}
-#adam-vista .va-photography{left:76%;top:39%}
+/* Match createSkyLayout's authored defaults on the very first paint. */
+#adam-vista .va-github{left:31.16%;top:16.21%}
+#adam-vista .va-linkedin{left:22.83%;top:27.61%}
+#adam-vista .va-events{left:70.19%;top:24.93%}
+#adam-vista .va-photography{left:61.86%;top:36.57%}
 #adam-vista .va-identity{left:0;right:0;top:calc(var(--va-scene-height) * .708 + clamp(0px,30px - 3cqw,21px));gap:0;transition:opacity .5s ease}
 #adam-vista .va-name{width:min(594px,calc(100% - 48px),max(var(--va-name-width),420px));max-width:none}
 #adam-vista .va-credit{margin-top:clamp(-20px,-2cqw,-7px);gap:2px}
@@ -365,6 +366,8 @@
 #adam-vista .va-sky-link{color:var(--va-link-ink,#f4ecd7);text-shadow:0 1px 1.5px var(--va-type-edge);transition:color var(--va-ink-duration,1.6s) ease,text-shadow var(--va-ink-duration,1.6s) ease}
 #adam-vista .va-sky-link:hover,#adam-vista .va-sky-link:focus-visible{color:var(--va-link-hover,#ffe8bf)}
 #adam-vista .va-link-label{-webkit-text-stroke:0}
+/* Markers become visible after moving into their measured sky-art layer. */
+#adam-vista .va-sky-link > .va-constellation{visibility:hidden}
 #adam-vista .va-constellation,#adam-vista .va-events .va-constellation,#adam-vista .va-linkedin .va-constellation,#adam-vista .va-photography .va-constellation{right:auto;left:0;top:0;transform:none;transform-origin:0 0}
 #adam-vista .va-constellation canvas{transform-origin:37px 30px}
 #adam-vista .va-constellation b{left:35px;top:28px}
