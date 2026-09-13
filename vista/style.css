@@ -39,7 +39,8 @@
 #adam-vista .va-sky-link:hover .va-constellation canvas,#adam-vista .va-sky-link:focus-visible .va-constellation canvas{opacity:.72}
 #adam-vista .va-sky-link:hover .va-constellation b{box-shadow:0 0 0 7px #edddba10,0 0 0 8px #edddba25}
 #adam-vista .va-identity{position:absolute;left:0;right:0;top:71%;display:flex;align-items:center;flex-direction:column;pointer-events:none;transition:opacity .5s,left .8s,right .8s,top .8s}
-#adam-vista .va-name{width:var(--va-name-width);max-width:660px;height:auto;aspect-ratio:1296/236;display:block;background:transparent;pointer-events:none}
+#adam-vista .va-name{width:var(--va-name-width);max-width:660px;height:auto;aspect-ratio:1296/236;display:block;background:transparent;pointer-events:auto;touch-action:pan-y;outline-offset:5px}
+#adam-vista .va-name:focus-visible{outline:1px dotted currentColor}
 #adam-vista .va-credit{display:flex;flex-direction:column;align-items:center;color:#e0d0cc;max-width:calc(100% - 36px);margin-top:-5px;pointer-events:auto;transition:opacity .3s}
 #adam-vista .va-email{font:400 12px/1.5 'IBM Plex Mono',monospace;display:flex;min-height:30px;align-items:center;letter-spacing:0}
 

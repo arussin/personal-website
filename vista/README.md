@@ -49,6 +49,14 @@ The native page retains the latest sky positions, centered phone crop, Arrange s
 orange J, purple letter depth, coordinated day/night lighting, and current content.
 It contains no iframe, Tweak controls, or preview-host icon dependency.
 
+The name uses square dots with pointer/touch light ripples. Its automatic shimmer
+visits a small, softly edged patch in a varied direction for 5–7 seconds, then
+rests for 20–31 seconds. The first shimmer begins after 4.5 seconds of active
+viewing. Pointer interaction takes priority. Space or Enter on the name starts a
+shimmer; the existing pause, hidden-tab, reading-panel and reduced-motion states
+suspend it. The letter outline, lighting, depth and shadows are preserved.
+With `?debug-motion`, `window.nameLightDebug.snapshot()` reports its local state.
+
 ## Development regression checks
 
 With Playwright available to Node, run `node vista/tests/motion-lifecycle.cjs`
@@ -76,6 +84,9 @@ rapid resizing, GPU resets during asset loading and playback, restored controls,
 actual painted terrain pixels, and preservation of an intentional pause. It uses
 Chrome's device-metrics emulation and WebGL context-loss extension; physical
 multi-monitor/GPU migration still depends on the visitor's browser and driver.
+`node vista/tests/name-light.cjs` checks automatic glimmers, pointer and touch
+response, settling, pause across density changes, panel suspension, keyboard
+activation and reduced motion against the production entry page.
 
 ## Panorama preservation
 

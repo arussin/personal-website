@@ -224,7 +224,7 @@ buildStoneMask(mainFace,false);buildStoneMask(accentFace,true);
 perspectiveBaseContext.drawImage(mainFace,0,0);perspectiveBaseContext.drawImage(accentFace,0,0);
 // Upright, head-on dotted stone; the same light-directed ground shadow.
 let lastNameLight='';
-function paintNameLighting(day,altitude){
+function paintNameBaseLighting(day,altitude){
  const key=day.toFixed(3)+'/'+altitude.toFixed(3);if(key===lastNameLight)return;lastNameLight=key;
  const blend=(a,b,t)=>'#'+[1,3,5].map(i=>Math.round(mix(parseInt(a.slice(i,i+2),16),parseInt(b.slice(i,i+2),16),t)).toString(16).padStart(2,'0')).join('');
  resetLayer(perspectiveDepth);
@@ -235,11 +235,209 @@ function paintNameLighting(day,altitude){
  shadow.save();shadow.globalAlpha=.24+day*.07;shadow.filter='blur(1.3px)';
  shadow.setTransform(1,0,-castX,-castY,base*castX,base*(1+castY)+1);shadow.drawImage(perspectiveBase,0,0);shadow.restore();
  shadow.save();shadow.globalCompositeOperation='source-in';shadow.fillStyle=blend('#302438','#6d5343',day);shadow.fillRect(0,0,W,H);shadow.restore();
- ctx.clearRect(0,0,W,H);ctx.drawImage(perspectiveShadow,0,0);ctx.drawImage(perspectiveDepth,0,0);
- const face=blend('#cdc5a5','#ecdcba',day),accent=blend('#d79971','#c4875d',day);
- for(const p of particles){ctx.fillStyle=p.dot?accent:face;ctx.fillRect(p.bx-p.size/2,p.by-p.size/2,p.size,p.size*1.32);}
+
 }
-paintNameLighting(0,-.93);
+
+
+// Restore the square sampling, direct-resolution drawing, damped
+// water response and sparse glints from the saved adam-iris-moon version.
+// Current glyph outlines, placement, colors, extrusion and shadows stay intact.
+const nameStudyBase=volumeLayer(),nameStudyBaseContext=nameStudyBase.getContext('2d');
+const nameDots=[];
+for(const letter of layout){
+ const glyph=glyphs[letter.letter];
+ // Resample the current taller silhouette on the original square lattice;
+ // stretching the old dots themselves would produce rectangular mesh cells.
+ for(let y=2;y<7*UNIT*1.32;y+=4)for(let x=2;x<(glyph.width||5)*UNIT;x+=4){
+  if(glyph.bits[Math.min(6,Math.floor(y/(UNIT*1.32)))][Math.floor(x/UNIT)]!=='1')continue;
+  const seed=(nameDots.length*.61803398875)%1;
+  nameDots.push({bx:letter.x+x,by:letter.y+y,size:3.94,seed,dot:letter.letter==='J'||letter.letter==='.',ox:0,oy:0,vx:0,vy:0,light:0});
+ }
+}
+const nameStudy={time:0,last:0,frame:0,lastPaint:0,fronts:[],moving:new Set(),sweep:null,nextSweep:4.5,lastPatchX:null,day:0,altitude:-.93,pointerAt:-100,lastX:-1000,lastY:-1000,disposed:false,paintCount:0};
+const nameAbort=new AbortController();
+const nameOn=(target,event,fn)=>target.addEventListener(event,fn,{signal:nameAbort.signal});
+const nameBlend=(a,b,t)=>a.map((v,i)=>Math.round(mix(v,b[i],t)));
+const nameRGB=c=>'rgb('+c.join(',')+')';
+let namePaletteKey='',nameMainColor='',nameAccentColor='',nameHighlight=[255,241,254];
+let nameScale=1,nameDpr=1,nameDeviceRatio=1,waterRadius=65,waterFalloff=1152,waterTravel=.09,driftLimit=1.8,sheenOpacity=.58,sheenGain=1;
+
+function syncNameSurface(){
+ const width=canvas.getBoundingClientRect().width;
+ if(!width)return false;
+ nameScale=width/W;nameDeviceRatio=devicePixelRatio||1;nameDpr=Math.min(nameDeviceRatio,2);
+ const screenFactor=ease((width-280)/440);
+ waterRadius=mix(24,65,screenFactor);waterFalloff=Math.pow(waterRadius/65,2)*1152;
+ waterTravel=waterRadius/720;driftLimit=mix(.38,1.8,screenFactor);
+ sheenOpacity=mix(.12,.58,screenFactor);sheenGain=mix(.19,1,screenFactor);
+ const widthPx=Math.round(width*nameDpr),heightPx=Math.round(width*H/W*nameDpr);
+ if(canvas.width===widthPx&&canvas.height===heightPx)return false;
+ canvas.width=widthPx;canvas.height=heightPx;return true;
+}
+function paintNameLighting(day,altitude){
+ const resized=(devicePixelRatio||1)!==nameDeviceRatio?syncNameSurface():false;
+ const key=day.toFixed(3)+'/'+altitude.toFixed(3);
+ if(key===namePaletteKey){if(resized)drawNameStudy();return;}
+ namePaletteKey=key;nameStudy.day=day;nameStudy.altitude=altitude;
+ paintNameBaseLighting(day,altitude);
+ nameMainColor=nameRGB(nameBlend([205,197,165],[236,220,186],day));
+ nameAccentColor=nameRGB(nameBlend([215,153,113],[196,135,93],day));
+ nameHighlight=nameBlend([255,241,254],[255,255,232],day);
+ nameStudyBaseContext.clearRect(0,0,W,H);
+ nameStudyBaseContext.drawImage(perspectiveShadow,0,0);
+ nameStudyBaseContext.drawImage(perspectiveDepth,0,0);
+ drawNameStudy();
+}
+function nameMotionAllowed(){return !nameStudy.disposed&&!document.hidden&&root.isConnected&&root.dataset.open!=='true'&&root.dataset.skyReady==='true'&&!reduced.matches&&root.querySelector('.va-time-pause').getAttribute('aria-pressed')!=='true';}
+function nameRipple(x,y,power=10){
+ if(!nameMotionAllowed())return;
+ const hits=[];
+ for(const p of nameDots){
+  const dx=(p.bx-x)*nameScale,dy=(p.by-y)*nameScale,dd=dx*dx+dy*dy;
+  if(dd>waterRadius*waterRadius)continue;
+  const distance=Math.sqrt(dd),angle=Math.atan2(dy,dx)+(p.seed-.5)*.5;
+  const strength=power*Math.exp(-dd/waterFalloff)*(.55+.45*p.seed);
+  hits.push({p,distance,vx:Math.cos(angle)*strength,vy:Math.sin(angle)*strength});
+ }
+ if(!hits.length)return;
+ hits.sort((a,b)=>a.distance-b.distance);
+ nameStudy.fronts.push({hits,cursor:0,born:nameStudy.time});
+ if(nameStudy.fronts.length>2)nameStudy.fronts.shift();
+ nameStudy.pointerAt=nameStudy.time;wakeNameStudy();
+}
+function nameSweep(){
+ if(!nameMotionAllowed())return;
+ // Choose an occupied part of a letter, away from the previous patch. A soft
+ // elliptical footprint keeps each glimmer local rather than scanning the name.
+ const candidates=nameDots.filter(p=>nameStudy.lastPatchX===null||Math.abs(p.bx-nameStudy.lastPatchX)>W*.18);
+ const anchor=candidates[Math.floor(Math.random()*candidates.length)];
+ const x=anchor.bx,y=anchor.by,rx=100+Math.random()*65,ry=48+Math.random()*32;
+ const angle=Math.random()*Math.PI*2,dx=Math.cos(angle),dy=Math.sin(angle);
+ const extent=Math.hypot(rx*dx,ry*dy),bendPhase=Math.random()*Math.PI*2;
+ const duration=5+Math.random()*2,hits=[];
+ for(const p of nameDots){
+  const ox=p.bx-x,oy=p.by-y,r=Math.hypot(ox/rx,oy/ry);
+  if(r>=1)continue;
+  const across=-ox*dy+oy*dx;
+  const along=ox*dx+oy*dy+Math.sin(across*.035+bendPhase)*extent*.08;
+  const gain=1-ease((r-.3)/.7);
+  if(gain<.015)continue;
+  const heading=angle+Math.sin(across*.025)*.16+(p.seed-.5)*.2;
+  const strength=5.6*gain*(.55+.45*p.seed);
+  hits.push({p,at:clamp(.5+along/(extent*2),.02,.98),vx:Math.cos(heading)*strength,vy:Math.sin(heading)*strength});
+ }
+ hits.sort((a,b)=>a.at-b.at);
+ nameStudy.sweep={born:nameStudy.time,duration,hits,cursor:0,x,y,rx,ry,angle};
+ nameStudy.lastPatchX=x;
+ nameStudy.nextSweep=nameStudy.time+duration+20+Math.random()*11;wakeNameStudy();
+}
+function advanceNameWater(delta){
+ const state=nameStudy;
+ for(const front of state.fronts){
+  const radius=Math.min(waterRadius,(state.time-front.born)*1000*waterTravel);
+  while(front.cursor<front.hits.length&&front.hits[front.cursor].distance<=radius){
+   const hit=front.hits[front.cursor++];hit.p.vx+=hit.vx;hit.p.vy+=hit.vy;state.moving.add(hit.p);
+  }
+ }
+ state.fronts=state.fronts.filter(front=>state.time-front.born<.75);
+ if(state.sweep){
+  const sweep=state.sweep,t=(state.time-sweep.born)/sweep.duration;
+  if(t>1)state.sweep=null;
+  else{
+   const arrival=ease(t);
+   while(sweep.cursor<sweep.hits.length&&sweep.hits[sweep.cursor].at<=arrival){
+    const hit=sweep.hits[sweep.cursor++];
+    // Direct interaction takes priority, without queuing a burst for later.
+    if(state.time-state.pointerAt<2.5)continue;
+    hit.p.vx+=hit.vx;hit.p.vy+=hit.vy;state.moving.add(hit.p);
+   }
+  }
+ }
+ // Exact damped spring solution from the Iris/moon study; no frame-dependent
+ // integrator, dot size animation, randomized face colors, or banner warping.
+ const dt=Math.min(delta,50)/1000,a=2.2,k=64,w=Math.sqrt(k-a*a);
+ const decay=Math.exp(-a*dt),c=Math.cos(w*dt),s=Math.sin(w*dt)/w;
+ for(const p of state.moving){
+  const x=p.ox,y=p.oy,vx=p.vx,vy=p.vy;
+  p.ox=decay*(x*c+(vx+a*x)*s);p.oy=decay*(y*c+(vy+a*y)*s);
+  p.vx=decay*(vx*c-(a*vx+k*x)*s);p.vy=decay*(vy*c-(a*vy+k*y)*s);
+  if(p.ox*p.ox+p.oy*p.oy<.000025&&p.vx*p.vx+p.vy*p.vy<.0004){
+   p.ox=p.oy=p.vx=p.vy=p.light=0;state.moving.delete(p);
+  }
+ }
+}
+function nameDrift(p){
+ if(p.ox===0&&p.oy===0)return 0;
+ const length=Math.hypot(p.ox,p.oy);
+ return driftLimit*Math.tanh(length/driftLimit)/length/nameScale;
+}
+function drawNameStudy(){
+ ctx.setTransform(nameDpr,0,0,nameDpr,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+ ctx.clearRect(0,0,canvas.width/nameDpr,canvas.height/nameDpr);ctx.scale(nameScale,nameScale);
+ ctx.drawImage(nameStudyBase,0,0);
+ for(const dot of [false,true]){
+  ctx.fillStyle=dot?nameAccentColor:nameMainColor;
+  for(const p of nameDots){
+   if(p.dot!==dot)continue;
+   const amount=nameDrift(p);
+   ctx.fillRect(p.bx+p.ox*amount-p.size/2,p.by+p.oy*amount-p.size/2,p.size,p.size);
+  }
+ }
+ ctx.save();ctx.globalCompositeOperation='source-atop';
+ const size=Math.min(2.2/nameScale,3.2);
+ for(const p of nameStudy.moving){
+  if(p.seed<.42)continue;
+  const energy=Math.hypot(p.vx,p.vy),distance=Math.hypot(p.ox,p.oy),amount=nameDrift(p);
+  const opacity=Math.min(sheenOpacity,(energy*.09+distance*.8)*sheenGain);p.light=opacity;
+  if(opacity<.02)continue;
+  ctx.fillStyle='rgba('+nameHighlight.join(',')+','+opacity+')';
+  ctx.fillRect(p.bx+p.ox*amount-size/2,p.by+p.oy*amount-size/2,size,size);
+ }
+ ctx.restore();nameStudy.paintCount++;
+}
+function tickNameStudy(now){
+ const s=nameStudy;s.frame=0;if(!nameMotionAllowed()){s.last=0;return;}
+ const dt=s.last?Math.min(50,now-s.last):0;s.last=now;s.time+=dt/1000;
+ if(!s.sweep&&s.time>s.nextSweep&&s.time-s.pointerAt>3)nameSweep();
+ const wasActive=s.sweep||s.fronts.length||s.moving.size;
+ advanceNameWater(dt);
+ const active=s.sweep||s.fronts.length||s.moving.size;
+ if((active&&now-s.lastPaint>=14)||(wasActive&&!active)){drawNameStudy();s.lastPaint=now;}
+ s.frame=requestAnimationFrame(tickNameStudy);
+}
+function wakeNameStudy(){if(!nameStudy.frame&&nameMotionAllowed()){nameStudy.last=0;nameStudy.frame=requestAnimationFrame(tickNameStudy);}}
+function suspendNameStudy(){cancelAnimationFrame(nameStudy.frame);nameStudy.frame=0;nameStudy.last=0;}
+function sampleNameLight(event){
+ if(event.pointerType==='touch'&&event.type==='pointermove'&&!event.buttons)return;
+ const r=canvas.getBoundingClientRect(),x=event.clientX-r.left,y=event.clientY-r.top;
+ if(!nameScale)return;
+ if(event.type==='pointermove'&&(nameStudy.time-nameStudy.pointerAt<.26||Math.hypot(x-nameStudy.lastX,y-nameStudy.lastY)<24))return;
+ nameStudy.lastX=x;nameStudy.lastY=y;
+ nameRipple(x/nameScale,y/nameScale,event.type==='pointerdown'?11:10);
+}
+function resetNameLight(){
+ nameStudy.fronts=[];nameStudy.sweep=null;nameStudy.moving.clear();nameStudy.nextSweep=nameStudy.time+30;
+ for(const p of nameDots)p.ox=p.oy=p.vx=p.vy=p.light=0;
+ drawNameStudy();
+}
+canvas.tabIndex=0;
+canvas.setAttribute('aria-description','Decorative light ripples on the name. Move or tap here, or press Space for a gentle local shimmer.');
+nameOn(canvas,'pointermove',sampleNameLight);nameOn(canvas,'pointerdown',sampleNameLight);
+nameOn(canvas,'keydown',event=>{if(event.code==='Space'||event.code==='Enter'){event.preventDefault();nameSweep();}});
+nameOn(document,'visibilitychange',()=>{if(document.hidden)suspendNameStudy();else wakeNameStudy();});
+nameOn(reduced,'change',()=>{if(reduced.matches){suspendNameStudy();resetNameLight();}else wakeNameStudy();});
+const nameObserver=new MutationObserver(()=>{if(nameMotionAllowed())wakeNameStudy();else suspendNameStudy();});
+nameObserver.observe(root,{attributes:true,attributeFilter:['data-open','data-sky-ready']});
+nameObserver.observe(root.querySelector('.va-time-pause'),{attributes:true,attributeFilter:['aria-pressed']});
+const nameResize=new ResizeObserver(()=>{syncNameSurface();drawNameStudy();});
+nameResize.observe(canvas);
+nameOn(window,'resize',()=>{syncNameSurface();drawNameStudy();});
+nameOn(window,'pagehide',event=>{suspendNameStudy();if(!event.persisted){nameStudy.disposed=true;nameObserver.disconnect();nameResize.disconnect();nameAbort.abort();}});
+nameOn(window,'pageshow',()=>{syncNameSurface();drawNameStudy();wakeNameStudy();});
+syncNameSurface();paintNameLighting(0,-.93);wakeNameStudy();
+// Opt-in, local diagnostics for motion regression checks.
+if(new URLSearchParams(location.search).has('debug-motion'))window.nameLightDebug=Object.freeze({sweep:nameSweep,reset:resetNameLight,snapshot:()=>({time:nameStudy.time,lights:nameDots.filter(p=>p.light>.025).length,dots:nameDots.length,sweep:!!nameStudy.sweep,patch:nameStudy.sweep?{x:nameStudy.sweep.x,y:nameStudy.sweep.y,width:nameStudy.sweep.rx*2,height:nameStudy.sweep.ry*2,angle:nameStudy.sweep.angle*180/Math.PI,duration:nameStudy.sweep.duration,dots:nameStudy.sweep.hits.length}:null,fronts:nameStudy.fronts.length,moving:nameStudy.moving.size,paints:nameStudy.paintCount,allowed:nameMotionAllowed(),dotSize:3.94,spacing:4,dpr:nameDpr,renderScale:nameScale})});
+
 
 // Keep the annotated anchor at [37,30] and the established hover reveal.
 // Distinct small silhouettes live inside the same footprint around each link.
