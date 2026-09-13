@@ -55,6 +55,8 @@ rests for 20–31 seconds. The first shimmer begins after 4.5 seconds of active
 viewing. Pointer interaction takes priority. Space or Enter on the name starts a
 shimmer; the existing pause, hidden-tab, reading-panel and reduced-motion states
 suspend it. The letter outline, lighting, depth and shadows are preserved.
+The resting dot lattice remains under displaced shimmer dots, preventing the
+radial impulse from opening dark gaps onto the purple extrusion beneath it.
 With `?debug-motion`, `window.nameLightDebug.snapshot()` reports its local state.
 
 ## Development regression checks
@@ -87,6 +89,9 @@ multi-monitor/GPU migration still depends on the visitor's browser and driver.
 `node vista/tests/name-light.cjs` checks automatic glimmers, pointer and touch
 response, settling, pause across density changes, panel suspension, keyboard
 activation and reduced motion against the production entry page.
+`node vista/tests/name-light-coverage.cjs` samples pointer and automatic shimmers
+at controlled spring ages, checking for dark holes and a stable resting texture
+in both daylight and moonlight at desktop and phone sizes.
 `node vista/tests/scene-startup.cjs` holds application startup to verify the full
 panorama is already present on wide and phone screens, scene assets preload only
 once, and the renderer paints all terrain regions when it takes over.

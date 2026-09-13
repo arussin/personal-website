@@ -379,9 +379,15 @@ function drawNameStudy(){
   ctx.fillStyle=dot?nameAccentColor:nameMainColor;
   for(const p of nameDots){
    if(p.dot!==dot)continue;
-   const amount=nameDrift(p);
-   ctx.fillRect(p.bx+p.ox*amount-p.size/2,p.by+p.oy*amount-p.size/2,p.size,p.size);
+   // Keep the resting lattice underneath the ripple. Radially displaced dots
+   // otherwise expose the dark extrusion as a cross at the impulse's center.
+   ctx.fillRect(p.bx-p.size/2,p.by-p.size/2,p.size,p.size);
   }
+ }
+ for(const p of nameStudy.moving){
+  const amount=nameDrift(p);if(!amount)continue;
+  ctx.fillStyle=p.dot?nameAccentColor:nameMainColor;
+  ctx.fillRect(p.bx+p.ox*amount-p.size/2,p.by+p.oy*amount-p.size/2,p.size,p.size);
  }
  ctx.save();ctx.globalCompositeOperation='source-atop';
  const size=Math.min(2.2/nameScale,3.2);
