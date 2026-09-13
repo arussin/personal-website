@@ -39,6 +39,13 @@ def page(view):
     result = re.sub(r'  <meta name="robots"[^>]+>\n', '', template)
     result = re.sub(r'<title>.*?</title>', '<title>'+title+'</title>', result)
     result = result.replace('href="../favicon.svg"', 'href="/favicon.svg"')
+    # Preloads must match the runtime's exact URLs to reuse their responses.
+    # The content-hashed opening still is also the CSS fallback, without a query.
+    def preload_url(match):
+        path = match[1].split('?', 1)[0]
+        suffix = '' if path.startswith('assets/opening-') else '?v=' + version
+        return 'href="/vista/' + path + suffix + '"'
+    result = re.sub(r'href="(assets/[^"\s]+|sky\.frag[^"\s]*)"', preload_url, result)
     result = re.sub(r'href="style\.css[^"\s]*"', f'href="/vista/style.css?v={version}"', result)
     result = re.sub(r'src="(app|content)\.js[^"\s]*"', lambda m: f'src="/vista/{m[1]}.js?v={version}"', result)
     result = result.replace('id="adam-vista"', 'id="adam-vista" data-site-base="/" data-release="'+version+'"')

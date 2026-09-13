@@ -87,6 +87,20 @@ multi-monitor/GPU migration still depends on the visitor's browser and driver.
 `node vista/tests/name-light.cjs` checks automatic glimmers, pointer and touch
 response, settling, pause across density changes, panel suspension, keyboard
 activation and reduced motion against the production entry page.
+`node vista/tests/scene-startup.cjs` holds application startup to verify the full
+panorama is already present on wide and phone screens, scene assets preload only
+once, and the renderer paints all terrain regions when it takes over.
+
+## Opening scene
+
+The content-hashed `assets/opening-*.webp` is a still exported from the existing
+renderer at the initial time, including the calibrated side extensions. It fills
+the loading background at exactly the live landscape's scale. The full panorama
+replaces the old center-only fallback, so extended terrain does not pop in later.
+The HTML preloads the still and runtime scene resources before deferred application
+startup. The build matches runtime version queries so those responses are reused.
+`node tools/render-vista-poster.cjs` can regenerate the still after an intentional
+landscape change; update its filename in the template and CSS before rebuilding.
 
 ## Panorama preservation
 
