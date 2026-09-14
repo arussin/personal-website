@@ -30,3 +30,11 @@ Existing `fitbit-archive` pages and policies, original photographs/thumbnails,
 favicon, `style.css`, `script.js`, and `CNAME` are preserved byte for byte. No
 other repository, DNS record, project-site routing rule, or catch-all error page
 is changed.
+
+## Legacy asset cleanup
+
+The root `style.css`, root `script.js`, and `assets/bg.png` have been retired
+from the current source after verifying that current pages use `vista/` assets.
+The pre-release backup and original commit above retain all three files. The
+Vista scene, Fitbit archive, photographs, route aliases and domain configuration
+remain in place.
