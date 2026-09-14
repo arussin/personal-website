@@ -195,7 +195,7 @@ function volumeLayer(){const c=document.createElement('canvas');c.width=W;c.heig
 const perspectiveBase=volumeLayer(),perspectiveDepth=volumeLayer(),perspectiveShadow=volumeLayer();
 const mainFace=volumeLayer(),accentFace=volumeLayer(),edgeMask=volumeLayer(),shadeLayer=volumeLayer();
 const perspectiveBaseContext=perspectiveBase.getContext('2d'),perspectiveDepthContext=perspectiveDepth.getContext('2d'),perspectiveShadowContext=perspectiveShadow.getContext('2d');
-let maskWear=-1,perspectiveWear=-1,perspectiveProgress=-1,perspectivePalette='',perspectiveLight='',maskProgress=-1;
+let perspectiveWear=-1,perspectiveProgress=-1,perspectivePalette='',perspectiveLight='',maskProgress=-1;
 function resetLayer(c){const g=c.getContext('2d');g.setTransform(1,0,0,1,0,0);g.globalAlpha=1;g.globalCompositeOperation='source-over';g.filter='none';g.clearRect(0,0,W,H);return g;}
 function buildStoneMask(layer,dot){
  const g=resetLayer(layer),fade=1-ease((progress-.74)/.25);g.fillStyle='#fff';g.strokeStyle='#fff';
@@ -623,7 +623,7 @@ function createLivingVista({root,onLight,getSurfaceOpacity}){
  }
  skyLayout.setTerrain(terrainEdge,()=>cameraX);
  function image(src){return new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=new URL(src+runtimeVersion,runtimeBase).href;});}
- const cloudNodes=[...root.querySelectorAll('.va-constellation')].map(host=>{const img=document.createElement('img');img.className='va-link-cloud';img.alt='';img.src=new URL(assets.cloud,runtimeBase).href;host.append(img);return img;});
+ [...root.querySelectorAll('.va-constellation')].forEach(host=>{const img=document.createElement('img');img.className='va-link-cloud';img.alt='';img.src=new URL(assets.cloud,runtimeBase).href;host.append(img);});
  skyLayout.refresh();
  const uniforms={};
  function shader(type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){const message=gl.getShaderInfoLog(s);gl.deleteShader(s);throw new Error(message);}return s;}

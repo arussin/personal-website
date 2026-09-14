@@ -24,9 +24,18 @@ The original site is retained at commit
 that snapshot. Revert the release commit to roll back only its changes, preserving
 subsequent unrelated work; do not reset the whole repository to an old commit.
 
-This release changes only the existing home, Events, and Photography entry pages,
-and adds their shared source, assets, route directories, and maintenance files.
-Existing `fitbit-archive` pages and policies, original photographs/thumbnails,
-favicon, `style.css`, `script.js`, and `CNAME` are preserved byte for byte. No
-other repository, DNS record, project-site routing rule, or catch-all error page
-is changed.
+The initial Vista release updated the home, Events and Photography entry pages
+and added their shared source, assets, route directories and maintenance files.
+It preserved the Fitbit archive, original photographs and thumbnails, favicon,
+domain configuration and legacy root assets. The later removal of unused assets
+is recorded below.
+
+## Legacy asset cleanup
+
+Current pages use the shared assets in `vista/`. The unused root `style.css`,
+root `script.js` and `assets/bg.png` have been removed from the source tree;
+the pre-release backup and original commit above retain all three files.
+
+Publishing this version retires `/style.css`, `/script.js` and `/assets/bg.png`.
+Current repository pages do not use those URLs. References from external sites
+were not checked.
