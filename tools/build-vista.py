@@ -1,4 +1,4 @@
-"""Generate only the personal site's entry pages. Unrelated files are never touched."""
+"""Generate the personal site's entry pages and public search files."""
 from pathlib import Path
 import hashlib
 import html
@@ -35,9 +35,15 @@ def fallback(view):
 
 def page(view):
     title = {'home': 'Adam J. Russin', 'events': 'Events · Adam J. Russin', 'photography': 'Photography · Adam J. Russin'}[view]
+    description = {
+        'home': 'Personal website of Adam J. Russin — drummer for Kleenex Girl Wonder, photographer, and technology speaker.',
+        'events': 'Events, performances, and technology talks by Adam J. Russin, drummer for Kleenex Girl Wonder.',
+        'photography': 'Explore photographs by Adam J. Russin in his personal photography gallery.',
+    }[view]
     canonical = 'https://adamrussin.com' + ('/' if view == 'home' else '/'+view+'/')
     result = re.sub(r'  <meta name="robots"[^>]+>\n', '', template)
     result = re.sub(r'<title>.*?</title>', '<title>'+title+'</title>', result)
+    result = re.sub(r'<meta name="description"[^>]+>', '<meta name="description" content="'+html.escape(description, quote=True)+'">', result)
     result = result.replace('href="../favicon.svg"', 'href="/favicon.svg"')
     # Preloads must match the runtime's exact URLs to reuse their responses.
     # The content-hashed opening still is also the CSS fallback, without a query.
@@ -58,8 +64,13 @@ def page(view):
   <meta property="og:title" content="{title}">
   <meta property="og:type" content="website">
   <meta property="og:url" content="{canonical}">
-  <meta property="og:description" content="Drummer, photographer, and technology speaker. A small living landscape by Adam J. Russin.">
+  <meta property="og:description" content="{html.escape(description, quote=True)}">
   <meta property="og:image" content="https://adamrussin.com/vista/assets/03cd3fed69d7.webp">
+  <meta property="og:site_name" content="Adam J. Russin">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{title}">
+  <meta name="twitter:description" content="{html.escape(description, quote=True)}">
+  <meta name="twitter:image" content="https://adamrussin.com/vista/assets/03cd3fed69d7.webp">
   <meta name="theme-color" content="#302637">
   <style>.site-heading{{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}}</style>
   {analytics}
@@ -72,4 +83,20 @@ for path, view in paths.items():
     target = ROOT / path
     target.parent.mkdir(exist_ok=True)
     target.write_text(page(view), encoding='utf-8')
+
+# Keep these routes crawlable so crawlers can read their existing noindex rules:
+# /maimai/ (including history and downloads), /fitbit-archive/, and /vista/.
+# Only the three canonical personal pages belong in the sitemap.
+(ROOT / 'robots.txt').write_text(
+    'User-agent: *\nAllow: /\n\nSitemap: https://adamrussin.com/sitemap.xml\n',
+    encoding='utf-8',
+)
+(ROOT / 'sitemap.xml').write_text(
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    + ''.join('  <url><loc>https://adamrussin.com'+path+'</loc></url>\n'
+              for path in ['/', '/events/', '/photography/'])
+    + '</urlset>\n',
+    encoding='utf-8',
+)
 print(json.dumps({'release': version, 'entry_pages': list(paths)}))

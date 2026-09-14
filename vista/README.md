@@ -24,7 +24,8 @@ are authoritative; the extraction script refuses to overwrite them by default.
 After editing these source files, run `python tools/build-vista.py` from the
 repository root. It regenerates only `index.html`, `events.html`,
 `photography.html`, `events/index.html`, and `photography/index.html`, including
-versioned asset URLs, canonical metadata, and no-JavaScript content. Existing
+versioned asset URLs, canonical metadata, and no-JavaScript content. It also
+generates the public robots file and three-page sitemap. Existing
 privacy policies, other projects, photos, domain configuration, and legacy
 shared styles are not modified by the build.
 

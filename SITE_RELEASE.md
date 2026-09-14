@@ -9,7 +9,9 @@ static GitHub Pages site on the existing `adamrussin.com` domain. The domain's
 Edit `vista/content.js` for events and photographs, `vista/index.html` for shared
 markup, `vista/style.css` for styles, and `vista/app.js` / `vista/sky.frag` for
 scene behavior. Run `python tools/build-vista.py` before publishing. This updates
-the five personal-site entry pages and their asset version references.
+the five personal-site entry pages, their asset version references, and the
+public `robots.txt` and `sitemap.xml`. Run `python tools/check-search.py` to
+check metadata and the pages excluded from indexing; see `SEARCH_VISIBILITY.md`.
 
 Run the browser checks documented in `vista/README.md` against a local HTTP server.
 Use real phone/browser checks as well: automated lifecycle checks do not establish
