@@ -127,3 +127,17 @@ home reset or change to permissions/security settings is necessary.
 - [Wrangler version and deployment commands](https://developers.cloudflare.com/workers/wrangler/commands/workers/)
 - [Native GitHub Builds integration](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/)
 - [Worker authorization](https://developers.cloudflare.com/workers/authorization/workers/)
+
+## GitHub Actions commissioning
+
+The owner approved a dedicated account token with Individual Workers Editor
+restricted to adamrussin-website. GitHub environment website-production permits
+only the main branch and stores CLOUDFLARE_WEBSITE_API_TOKEN. No DNS, route,
+other Worker, R2, D1, or account-wide permission is required.
+
+The active workflow initially supports manual dispatch only, with the current
+live version UUID required. It pins actions and runtimes, packages committed
+bytes, promotes one exact version, and retains the manifest and receipt for 30
+days. No credentials or raw CLI logs are retained as artifacts. Automatic push
+publication is pending a successful controlled run. The old disabled template is
+historical; .github/workflows/publish-website.yml is the executable workflow.
