@@ -3,8 +3,8 @@
 The public personal site uses the shared implementation in `vista/`. It is a
 static Cloudflare Workers site on `adamrussin.com` (cutover October 1, 2026 EDT).
 GitHub is canonical. GitHub Pages and its source `CNAME` remain as rollback standby.
-**GitHub pushes currently update Pages only.** Automatic Cloudflare publishing is
-not configured. See [WORKER_PUBLISHING.md](WORKER_PUBLISHING.md) for the reviewed
+**Main pushes publish to Cloudflare through GitHub Actions** and also update
+GitHub Pages standby. See [WORKER_PUBLISHING.md](WORKER_PUBLISHING.md) for the reviewed
 manual publication procedure, architecture diagrams and rollback instructions.
 
 ## Updating the site

@@ -28,8 +28,9 @@ export async function verifyContracts(fetchImpl=fetch){
  for(const [url,status,location] of cases){const r=await fetchImpl(url,{method:'HEAD',credentials:'omit',redirect:'manual',signal:AbortSignal.timeout(20000)});await r.body?.cancel();if(r.status!==status||r.headers.get('location')!==location)throw Error('Route failed: '+url);}
  return {integrations:result.rows.length,routes:cases.length};
 }
+export function automaticContext(env=process.env){return env.GITHUB_ACTIONS==='true'&&env.GITHUB_EVENT_NAME==='push'&&env.GITHUB_REF==='refs/heads/main'&&env.GITHUB_REPOSITORY==='arussin/personal-website';}
 export async function publish({root,build,wrangler,expectedVersion,expectedRevision,execute=false}){
- if(!execute||!uuid.test(expectedVersion)||!/^[a-f0-9]{40}$/.test(expectedRevision))throw Error('Explicit --execute, expected version and revision required');
+ if(!execute||!(uuid.test(expectedVersion)||(expectedVersion==='auto'&&automaticContext()))||!/^[a-f0-9]{40}$/.test(expectedRevision))throw Error('Explicit --execute, expected version and revision required');
  root=path.resolve(root);build=path.resolve(build);
  if(build===root||build.startsWith(root+path.sep))throw Error('Build must be outside canonical source');
  const manifest=JSON.parse(fs.readFileSync(path.join(build,'manifest.json')));
@@ -49,7 +50,7 @@ export async function publish({root,build,wrangler,expectedVersion,expectedRevis
  const env={...process.env,CLOUDFLARE_ACCOUNT_ID:'30f2b0382e0303b0f28cb2fe2e5c1320',WRANGLER_SEND_METRICS:'false',CI:'true',WRANGLER_LOG_PATH:path.join(build,'wrangler.log')};
  const cli=args=>execFileSync(process.execPath,[wrangler,...args,'--config',configPath],{cwd:build,env,encoding:'utf8',maxBuffer:8*1024*1024});
  const list=()=>activeDeployment(JSON.parse(cli(['deployments','list','--json'])));
- const before=list();if(before.version!==expectedVersion)throw Error('Live version differs from reviewed version');
+ const before=list();if(expectedVersion!=='auto'&&before.version!==expectedVersion)throw Error('Live version differs from reviewed version');
  const receipt={startedAt:new Date().toISOString(),revision:expectedRevision,before,status:'prepared'};
  const save=()=>fs.writeFileSync(path.join(build,'publication-receipt.json'),JSON.stringify(receipt,null,2));save();
  try{
