@@ -1,8 +1,11 @@
 # Living vista website
 
 The public personal site uses the shared implementation in `vista/`. It is a
-static GitHub Pages site on the existing `adamrussin.com` domain. The domain's
-`CNAME` and existing hosting configuration are preserved.
+static Cloudflare Workers site on `adamrussin.com` (cutover October 1, 2026 EDT).
+GitHub is canonical. GitHub Pages and its source `CNAME` remain as rollback standby.
+**GitHub pushes currently update Pages only.** Automatic Cloudflare publishing is
+not configured. See [WORKER_PUBLISHING.md](WORKER_PUBLISHING.md) for the reviewed
+manual publication procedure, architecture diagrams and rollback instructions.
 
 ## Updating the site
 
