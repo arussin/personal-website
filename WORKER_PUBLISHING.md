@@ -23,16 +23,26 @@ checks do not claim physical home commands, a personal-data sync or email delive
 
 ## Publishing status
 
-**Automatic Cloudflare publishing is NOT configured.** GitHub is canonical, but
-main pushes currently rebuild GitHub Pages only. Pages remains enabled at main/root
-with the source CNAME and custom-domain association as rollback standby. Its content
-will advance with future pushes; retain the exact fallback commit above.
+**Main pushes publish to Cloudflare through GitHub Actions.** GitHub remains
+canonical. Pages remains enabled at main/root as rollback standby and also advances
+with main. The manual commissioning run passed: 36954735144, source
+1f8df9ab6f409693fb4b3d11b80cfc6f4076db50, Worker version
+1231e433-652a-4ce4-a538-7d73f3ab3173, all 79 hashes and 20 service/route checks.
+The version above remains the initial cutover baseline.
 
-No new GitHub App connection, token, secret or persistent access was created.
-The disabled workflow under deploy/ is a review template, not an active workflow.
-Enabling automatic publication requires a separate decision on native Workers
-Builds versus GitHub Actions, exact displayed permissions, and one evidenced test
-publication. Do not reuse owner OAuth material or credentials from maimai.
+The owner created a dedicated account token: Individual Workers Editor for
+adamrussin-website only. GitHub environment website-production permits main only.
+The token grants no DNS/routes, other Worker, R2 or D1 access. No Cloudflare GitHub
+App or native Builds connection is used. Never reuse owner OAuth or maimai tokens.
+
+Push runs capture the current deployment, upload committed assets, then recheck
+GitHub main and deployment identity before promotion. Jobs serialize without
+cancelling active publication. Manual dispatch requires an explicit current
+version UUID. Only public hash and integration verification counts as success.
+Failures retain evidence; inspect the receipt before retrying or rolling back.
+No automatic rollback occurs. Disable this workflow in GitHub Actions to stop
+publishing; do not disable Pages or delete the Worker. Public manifests and
+receipts are retained 30 days. Retain important release evidence separately.
 
 ## Manual content publication
 
@@ -77,7 +87,8 @@ content or visual changes; this migration changes no public asset bytes.
 flowchart TD
   GitHub[GitHub canonical main] --> Pages[GitHub Pages rollback standby]
   GitHub --> Review[Reviewed manual content release]
-  Review --> Package[Committed allowlist and hash manifest]
+  Review --> CI[GitHub Actions main-only environment]
+  CI --> Package[Committed allowlist and hash manifest]
   Package --> Upload[Upload version then promote exact ID]
   Upload --> Website[adamrussin-website]
   Apex[adamrussin.com] --> Website
@@ -130,14 +141,9 @@ home reset or change to permissions/security settings is necessary.
 
 ## GitHub Actions commissioning
 
-The owner approved a dedicated account token with Individual Workers Editor
-restricted to adamrussin-website. GitHub environment website-production permits
-only the main branch and stores CLOUDFLARE_WEBSITE_API_TOKEN. No DNS, route,
-other Worker, R2, D1, or account-wide permission is required.
-
-The active workflow initially supports manual dispatch only, with the current
-live version UUID required. It pins actions and runtimes, packages committed
-bytes, promotes one exact version, and retains the manifest and receipt for 30
-days. No credentials or raw CLI logs are retained as artifacts. Automatic push
-publication is pending a successful controlled run. The old disabled template is
-historical; .github/workflows/publish-website.yml is the executable workflow.
+Manual commissioning passed before enabling the push trigger. Actions, Node,
+Python and Wrangler are pinned. Only the public manifest and receipt are saved
+as artifacts; credentials and raw CLI logs are excluded. Verify the initial
+main push run before declaring automatic commissioning complete.
+The old deploy/publish-website.yml.disabled is historical; the active workflow
+is .github/workflows/publish-website.yml.

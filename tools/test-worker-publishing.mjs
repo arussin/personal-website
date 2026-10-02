@@ -55,7 +55,7 @@ await atest('bounded redirect loop',async()=>{let calls=0;await assert.rejects((
 await atest('same-origin redirect verifies final bytes',async()=>{let calls=0;await verifyWorker(one,async()=>++calls===1?new Response(null,{status:307,headers:{Location:'/?x=1'}}):new Response(data.get('index.html')));assert.equal(calls,2);});
 await atest('reject nonpublic manifest before any fetch',()=>assert.rejects(()=>verifyWorker({revision:approved.revision,files:[{...one.files[0],path:'.env'}]},()=>{throw Error('Must not fetch');}),/Invalid manifest/));
 test('content config cannot manage routes or bindings',()=>{const c=JSON.parse(fs.readFileSync(path.join(root,'deploy/wrangler.content.json')));assert.deepEqual(Object.keys(c).sort(),['assets','compatibility_date','name','preview_urls','workers_dev'].sort());assert.equal(c.name,'adamrussin-website');assert.equal(c.workers_dev,false);assert.equal(c.preview_urls,false);assert.deepEqual(c.assets,{directory:'../.worker-build/public',html_handling:'auto-trailing-slash',not_found_handling:'none'});});
-const {activeDeployment,assertUnchanged,publish,verifyContracts}=await import('./publish-worker.mjs');
+const {activeDeployment,assertUnchanged,publish,verifyContracts,automaticContext}=await import('./publish-worker.mjs');
 const deployment={id:'11111111-1111-1111-1111-111111111111',created_on:'2026-10-01T01:00:00Z',versions:[{version_id:'22222222-2222-2222-2222-222222222222',percentage:100}]};
 test('choose latest deployment independent of API order',()=>assert.deepEqual(activeDeployment([deployment,{...deployment,id:'33333333-3333-3333-3333-333333333333',created_on:'2026-10-02T01:00:00Z'}]).deployment,'33333333-3333-3333-3333-333333333333'));
 test('reject split traffic before publication',()=>assert.throws(()=>activeDeployment([{...deployment,versions:[{...deployment.versions[0],percentage:50}]}]),/full-traffic/));
@@ -64,5 +64,10 @@ test('detect intervening production deployment',()=>assert.throws(()=>assertUnch
 test('accept stable production identity',()=>assertUnchanged(activeDeployment([deployment]),activeDeployment([deployment])));
 await atest('explicit execute gate precedes all operations',()=>assert.rejects(()=>publish({execute:false}),/Explicit/));
 await atest('integration failure blocks acceptance',()=>assert.rejects(()=>verifyContracts(async()=>new Response(null,{status:503})),/integration failed/));
+const ci={GITHUB_ACTIONS:'true',GITHUB_EVENT_NAME:'push',GITHUB_REF:'refs/heads/main',GITHUB_REPOSITORY:'arussin/personal-website'};
+test('automatic mode accepts this repository main push',()=>assert.equal(automaticContext(ci),true));
+test('automatic mode rejects pull requests',()=>assert.equal(automaticContext({...ci,GITHUB_EVENT_NAME:'pull_request'}),false));
+test('automatic mode rejects other branches and repositories',()=>{assert.equal(automaticContext({...ci,GITHUB_REF:'refs/heads/other'}),false);assert.equal(automaticContext({...ci,GITHUB_REPOSITORY:'other/repo'}),false);});
+test('automatic mode rejects local execution',()=>assert.equal(automaticContext({}),false));
 const result={checkedAt:new Date().toISOString(),passed:true,count,checks,approvedRevision:approved.revision,assets:79,bytes:20897073,evidenceDirectory:base,networkCalls:0,providerCommands:0,scope:'Offline fixture tests only; no provider upload/promotion permission or CI runtime validation'};
 fs.writeFileSync(path.join(base,'local-test-results.json'),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result,null,2));
