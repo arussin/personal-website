@@ -1,0 +1,43 @@
+# INACTIVE REVIEW TEMPLATE: outside .github/workflows, no automatic trigger.
+# Requires separate persistent-access approval and a verified first publication.
+# Native Workers Builds should also be evaluated before selecting this option.
+name: Reviewed website publication
+on:
+  workflow_dispatch:
+    inputs:
+      expected_live_version:
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: adamrussin-website-production
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'arussin/personal-website' && github.ref == 'refs/heads/main' && vars.CLOUDFLARE_WEBSITE_PUBLISH_ENABLED == 'true'
+    environment: website-production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Check generated pages
+        run: |
+          python3 tools/build-vista.py
+          python3 tools/check-search.py
+          git diff --exit-code
+      - name: Package committed bytes
+        run: node tools/package-worker.mjs "$RUNNER_TEMP/website-release"
+      - name: Install pinned Wrangler outside source
+        run: npm install --prefix "$RUNNER_TEMP/website-cli" --ignore-scripts --no-audit --no-fund wrangler@4.144.0
+      - name: Publish reviewed version and verify
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WEBSITE_API_TOKEN }}
+          EXPECTED_VERSION: ${{ inputs.expected_live_version }}
+        run: node tools/publish-worker.mjs "$RUNNER_TEMP/website-release" "$RUNNER_TEMP/website-cli/node_modules/wrangler/bin/wrangler.js" "$EXPECTED_VERSION" "$GITHUB_SHA" --execute
+# Before installation: review exact GitHub/Cloudflare permissions, pin language
+# setup and artifact upload actions, retain publication-receipt.json + manifest,
+# run the existing browser suites, and prove hostname preservation on first release.
+# Add automatic main triggers only after those separate acceptance gates pass.
