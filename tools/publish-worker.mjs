@@ -22,8 +22,8 @@ export async function verifyContracts(fetchImpl=fetch){
  ['https://www.adamrussin.com/events?release-check=1&x=a%20b',301,'https://adamrussin.com/events?release-check=1&x=a%20b'],
  ['http://www.adamrussin.com/events?release-check=1&x=a%20b',301,'https://www.adamrussin.com/events?release-check=1&x=a%20b'],
  ['https://adamrussin.com/events.html?release-check=1',307,'/events?release-check=1'],
- ['https://adamrussin.com/goshen?release-check=1',302,'https://chromewebstore.google.com/detail/goshen-terminal/jlhlihmmbllkllglociipkhafbpmhcle'],
- ['https://adamrussin.com/goshen/?release-check=1',302,'https://chromewebstore.google.com/detail/goshen-terminal/jlhlihmmbllkllglociipkhafbpmhcle'],
+ ['https://adamrussin.com/goshen?release-check=1',404,null],
+ ['https://adamrussin.com/goshen/?release-check=1',404,null],
  ...['/CNAME','/.env','/public-asset-manifest.json','/unlisted-release-check'].map(p=>['https://adamrussin.com'+p,404,null])];
  for(const [url,status,location] of cases){const r=await fetchImpl(url,{method:'HEAD',credentials:'omit',redirect:'manual',signal:AbortSignal.timeout(20000)});await r.body?.cancel();if(r.status!==status||r.headers.get('location')!==location)throw Error('Route failed: '+url);}
  return {integrations:result.rows.length,routes:cases.length};
