@@ -19,6 +19,13 @@ The public website now runs on Cloudflare Worker **adamrussin-website** at
   the photography equivalents to the trailing-slash routes with a 301, `_headers`
   sets security and cache headers, and unknown URLs return `404.html`. The
   publisher checks those routes only after promotion. See SITE_RELEASE.md.)
+- Cloudflare's managed robots.txt (zone setting, enabled after the October
+  releases) serves its own crawler rules in front of the committed `robots.txt`.
+  The verifier therefore checks that the live file ends with the committed
+  bytes. The November 21, 2026 run 44982098367 promoted Worker version
+  b16dd583-038d-4088-bac3-65d367dd1e0c (replacing
+  7a2152fd-0efc-4f95-ba56-3bc90d7ab5e5) and then failed on the older exact-size
+  check; the remaining 76 assets and 18 route checks were verified by hand.
 
 All 79 live asset hashes, 21 static routing cases and 10 additional checks passed.
 The existing 12 integration checks passed unchanged. Mail DNS, FTP, maimai routing,
