@@ -18,6 +18,7 @@ const {chromium}=require(process.env.VISTA_PLAYWRIGHT_MODULE||'playwright');
    if(view==='Events'){
     assert.ok(await page.locator('.va-event details').evaluateAll(items=>items.length===3&&items.every(item=>item.open)));
     assert.equal(await page.locator('.va-event').filter({hasText:'Bar Freda'}).locator('a').getAttribute('href'),'https://www.instagram.com/stories/highlights/17973199365102891/');
+    assert.equal(await page.locator('.va-event').filter({hasText:'Webster Hall'}).locator('a').getAttribute('href'),'https://www.instagram.com/stories/highlights/17895512346621706/');
    }else{
     await page.waitForFunction(()=>[...document.querySelectorAll('.va-photo img')].every(img=>img.complete&&img.naturalWidth>0));
    }
@@ -79,6 +80,7 @@ const {chromium}=require(process.env.VISTA_PLAYWRIGHT_MODULE||'playwright');
   await noJS.goto(base+'/events/',{waitUntil:'domcontentloaded'});
   assert.ok((await noJS.locator('body').innerText()).includes('Bar Freda'));
   assert.equal(await noJS.locator('noscript a[href*="17973199365102891"]').count(),1);
+  assert.equal(await noJS.locator('noscript a[href*="17895512346621706"]').count(),1);
   await noJS.close();assert.deepEqual(errors,[]);
   console.log('PASS phone scrolling and no-JavaScript event fallback');
  }finally{await browser.close();}
