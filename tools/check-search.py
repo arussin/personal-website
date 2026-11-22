@@ -31,8 +31,7 @@ robots = (ROOT / 'robots.txt').read_text()
 assert 'Disallow:' not in robots, 'Crawlers must be able to read noindex rules'
 assert 'Sitemap: https://adamrussin.com/sitemap.xml' in robots
 for file, url in [('index.html', expected[0]), ('events/index.html', expected[1]),
-                  ('events.html', expected[1]), ('photography/index.html', expected[2]),
-                  ('photography.html', expected[2])]:
+                  ('photography/index.html', expected[2])]:
     head = Head((ROOT / file).read_text(encoding='utf-8'))
     assert 'noindex' not in head.meta.get('robots', ''), file
     assert head.canonicals == [url], file
@@ -40,7 +39,13 @@ for file, url in [('index.html', expected[0]), ('events/index.html', expected[1]
     assert head.meta['description'] == head.meta['og:description'], file
     assert head.meta['twitter:description'] == head.meta['description'], file
 for file in ['fitbit-archive/index.html', 'fitbit-archive/privacy.html',
-             'fitbit-archive/terms.html', 'vista/index.html']:
+             'fitbit-archive/terms.html', 'vista/index.html', '404.html']:
     head = Head((ROOT / file).read_text(encoding='utf-8'))
     assert 'noindex' in head.meta.get('robots', ''), file
-print('PASS: sitemap allowlist, metadata, canonical aliases, and noindex pages')
+for file in ['events.html', 'photography.html']:
+    assert not (ROOT / file).exists(), f'{file} duplicates its trailing-slash route'
+redirects = (ROOT / '_redirects').read_text(encoding='utf-8').splitlines()
+for rule in ['/events /events/ 301', '/events.html /events/ 301',
+             '/photography /photography/ 301', '/photography.html /photography/ 301']:
+    assert rule in redirects, f'Missing permanent redirect: {rule}'
+print('PASS: sitemap allowlist, metadata, canonical routes, redirects, and noindex pages')

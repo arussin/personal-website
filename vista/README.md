@@ -14,23 +14,25 @@ Files are plain static source; no dependency installation or build service is
 required to serve them. `index.html` loads `content.js`, `app.js`, and `style.css`;
 the renderer loads its readable GLSL source from `sky.frag`.
 Scene artwork is local under `assets/`; photos use the repository's existing
-`../assets/photos/` and `../assets/thumbs/` files. The only font dependency is Google
-Fonts. The one-time extraction from the approved preview is kept in the parent
+`../assets/photos/` and `../assets/thumbs/` files. IBM Plex Mono is self-hosted
+under `assets/`. The one-time extraction from the approved preview is kept in the parent
 workspace as `work/vista-art-direction/prepare-standalone.py`; it is not required
 to run or deploy this directory. The native files now contain subsequent edits and
 are authoritative; the extraction script refuses to overwrite them by default.
 
-`/vista/` is a development entry page, marked noindex and without analytics.
+`/vista/` is a local development entry page, marked noindex and without analytics.
+It is the build template and is not published: the live site returns 404 for it.
 After editing these source files, run `python tools/build-vista.py` from the
-repository root. It regenerates only `index.html`, `events.html`,
-`photography.html`, `events/index.html`, and `photography/index.html`, including
+repository root. It regenerates only `index.html`, `events/index.html`, and
+`photography/index.html`, including
 versioned asset URLs, canonical metadata, and no-JavaScript content. It also
 generates the public robots file and three-page sitemap. Existing
 privacy policies, other projects, photos, domain configuration, and legacy
 shared styles are not modified by the build.
 
-The public routes `/events`, `/events/`, `/events.html`, `/photography`,
-`/photography/`, and `/photography.html` open the corresponding reading surface.
+The public routes `/events/` and `/photography/` open the corresponding reading
+surface. `/events`, `/events.html`, `/photography`, and `/photography.html`
+redirect to them permanently through the root `_redirects` file.
 Events start expanded, including entries revealed with Earlier events.
 
 ## Freeze diagnostics

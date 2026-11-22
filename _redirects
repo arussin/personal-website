@@ -1,0 +1,9 @@
+# Permanent redirects to the one canonical URL for each page.
+/index.html / 301
+/events /events/ 301
+/events.html /events/ 301
+/events/index.html /events/ 301
+/photography /photography/ 301
+/photography.html /photography/ 301
+/photography/index.html /photography/ 301
+/favicon.ico /favicon.svg 301

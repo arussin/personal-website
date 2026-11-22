@@ -2,13 +2,15 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {publicPath} from './package-worker.mjs';
+import {publicPath,controlFiles} from './package-worker.mjs';
 export async function verifyWorker(manifest,fetchImpl=fetch){
 if(!/^[a-f0-9]{40}$/.test(manifest.revision)||!Array.isArray(manifest.files)||!manifest.files.length||new Set(manifest.files.map(e=>e.path)).size!==manifest.files.length)throw Error('Invalid manifest');
 for(const e of manifest.files)if(!publicPath(e.path)||!Number.isSafeInteger(e.size)||e.size<0||e.size>25*1024*1024||!/^[a-f0-9]{64}$/.test(e.sha256))throw Error('Invalid manifest entry');
 for(const e of manifest.files){
  let url=new URL('/'+e.path,'https://adamrussin.com');
  let response;
+ // Cloudflare parses these two files and must not serve them.
+ if(controlFiles.has(e.path)){response=await fetchImpl(url,{redirect:'manual',credentials:'omit',signal:AbortSignal.timeout(20000)});await response.body?.cancel();if(response.status!==404)throw Error('Control file is public: '+e.path);continue;}
  for(let hops=0;hops<5;hops++){
   if(url.origin!=='https://adamrussin.com')throw Error('Out-of-scope redirect');
   response=await fetchImpl(url,{redirect:'manual',credentials:'omit',signal:AbortSignal.timeout(20000)});

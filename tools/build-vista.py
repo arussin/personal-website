@@ -11,7 +11,7 @@ template = (SOURCE / 'index.html').read_text(encoding='utf-8')
 content = json.loads((SOURCE / 'content.js').read_text(encoding='utf-8').split('=', 1)[1].rstrip(';\n'))
 version_files = [SOURCE / name for name in ['index.html', 'app.js', 'style.css', 'content.js', 'sky.frag']]
 version_files += sorted(path for path in (SOURCE / 'assets').iterdir() if path.is_file())
-version = hashlib.sha256(b''.join(path.read_bytes() if path.suffix in ['.webp', '.png'] else
+version = hashlib.sha256(b''.join(path.read_bytes() if path.suffix in ['.webp', '.png', '.woff2'] else
     path.read_bytes().replace(b'\r\n',b'\n') for path in version_files)).hexdigest()[:12]
 
 analytics = '''<script async src="https://www.googletagmanager.com/gtag/js?id=G-1J16K8YPDJ"></script>
@@ -45,11 +45,13 @@ def page(view):
     result = re.sub(r'<title>.*?</title>', '<title>'+title+'</title>', result)
     result = re.sub(r'<meta name="description"[^>]+>', '<meta name="description" content="'+html.escape(description, quote=True)+'">', result)
     result = result.replace('href="../favicon.svg"', 'href="/favicon.svg"')
+    result = result.replace('href="../apple-touch-icon.png"', 'href="/apple-touch-icon.png"')
     # Preloads must match the runtime's exact URLs to reuse their responses.
     # The content-hashed opening still is also the CSS fallback, without a query.
     def preload_url(match):
         path = match[1].split('?', 1)[0]
-        suffix = '' if path.startswith('assets/opening-') else '?v=' + version
+        # The stylesheet requests the fonts by their bare names as well.
+        suffix = '' if path.startswith(('assets/opening-', 'assets/ibm-plex-mono-')) else '?v=' + version
         return 'href="/vista/' + path + suffix + '"'
     result = re.sub(r'href="(assets/[^"\s]+|sky\.frag[^"\s]*)"', preload_url, result)
     result = re.sub(r'href="style\.css[^"\s]*"', f'href="/vista/style.css?v={version}"', result)
@@ -77,15 +79,16 @@ def page(view):
 '''
     return '\n'.join(line.rstrip() for line in result.replace('</head>', meta+'</head>').splitlines())+'\n'
 
-paths = {'index.html': 'home', 'events.html': 'events', 'events/index.html': 'events',
-         'photography.html': 'photography', 'photography/index.html': 'photography'}
+# One file per route. /events, /events.html and the photography equivalents are
+# permanent redirects to the trailing-slash routes, declared in _redirects.
+paths = {'index.html': 'home', 'events/index.html': 'events', 'photography/index.html': 'photography'}
 for path, view in paths.items():
     target = ROOT / path
     target.parent.mkdir(exist_ok=True)
     target.write_text(page(view), encoding='utf-8')
 
 # Keep these routes crawlable so crawlers can read their existing noindex rules:
-# /maimai/ (including history and downloads), /fitbit-archive/, and /vista/.
+# /maimai/ (including history and downloads).
 # Only the three canonical personal pages belong in the sitemap.
 (ROOT / 'robots.txt').write_text(
     'User-agent: *\nAllow: /\n\nSitemap: https://adamrussin.com/sitemap.xml\n',
