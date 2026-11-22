@@ -12,7 +12,7 @@ manual publication procedure, architecture diagrams and rollback instructions.
 Edit `vista/content.js` for events and photographs, `vista/index.html` for shared
 markup, `vista/style.css` for styles, and `vista/app.js` / `vista/sky.frag` for
 scene behavior. Run `python tools/build-vista.py` before publishing. This updates
-the five personal-site entry pages, their asset version references, and the
+the three personal-site entry pages, their asset version references, and the
 public `robots.txt` and `sitemap.xml`. Run `python tools/check-search.py` to
 check metadata and the pages excluded from indexing; see `SEARCH_VISIBILITY.md`.
 
@@ -42,3 +42,28 @@ the pre-release backup and original commit above retain all three files.
 Publishing this version retires `/style.css`, `/script.js` and `/assets/bg.png`.
 Current repository pages do not use those URLs. References from external sites
 were not checked.
+
+## November 2026 review fixes
+
+- **One URL per page.** `events.html` and `photography.html` are gone; `/events/`
+  and `/photography/` are the only copies. `_redirects` sends `/events`,
+  `/events.html`, `/events/index.html`, the photography equivalents and
+  `/index.html` to them with a permanent 301, and `/favicon.ico` to `/favicon.svg`.
+- **Headers.** `_headers` adds the security headers (HSTS, CSP, `nosniff`, frame
+  denial, referrer and permissions policies) and long-lived caching for scene
+  files, fonts, photographs and icons. HTML keeps Cloudflare's revalidate default.
+  A new third-party script or font needs a matching CSP entry in `_headers`.
+- **Fonts.** IBM Plex Mono (SIL Open Font License 1.1, Latin subset, weights 400
+  and 500) is served from `vista/assets/`; nothing loads from Google Fonts.
+- **404 page.** `404.html` is hand-written and self-contained. Unknown URLs
+  return it with status 404 (`not_found_handling: "404-page"`).
+- **Icons.** `apple-touch-icon.png` is a 180 px render of `favicon.svg`. Re-render
+  it if the SVG changes; iOS does not accept an SVG touch icon.
+- **Development page.** `vista/index.html` remains the build template and local
+  development page but is no longer published, so `/vista/` returns 404.
+- **Photograph viewer.** An enlarged photograph has its own history entry (Back
+  returns to the contact sheet), keeps keyboard focus, and fits one screen.
+
+`_headers` and `_redirects` are Cloudflare control files. GitHub Pages standby
+ignores both, so a hosting rollback to Pages loses these headers and serves
+`/events.html` and `/photography.html` as 404.

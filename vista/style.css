@@ -1,3 +1,6 @@
+/* Self-hosted IBM Plex Mono (SIL Open Font License 1.1), Latin subset. */
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url(assets/ibm-plex-mono-latin-400.woff2) format('woff2')}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url(assets/ibm-plex-mono-latin-500.woff2) format('woff2')}
 /* Animate the inherited palette once, so hidden/new content shares the current
    color instead of starting its own delayed fade when a section is opened. */
 @property --va-ink{syntax:'<color>';inherits:true;initial-value:#e7e5c7}
@@ -166,7 +169,9 @@
 #adam-vista .va-photo-pager>div,#adam-vista .va-photo-focus-tools>div{display:flex;gap:16px}
 #adam-vista .va-photo-pager button,#adam-vista .va-photo-focus-tools button{min-height:44px;font-size:11px}
 #adam-vista .va-photo-focus-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-#adam-vista .va-full-photo{display:block;width:100%;height:auto;max-height:570px;object-fit:contain;background:transparent}
+/* Keep the enlarged photograph and its controls within one screen. */
+#adam-vista .va-photo-focus{scroll-margin:10px 0}
+#adam-vista .va-full-photo{display:block;width:100%;height:auto;max-height:clamp(220px,calc(100svh - 124px),570px);object-fit:contain;background:transparent}
 #adam-vista .va-focus-index{display:block;font-size:11px;color:var(--va-soft);margin-top:12px;text-align:center}
 #adam-vista[data-layout=drawer] .va-reading{width:90%;max-width:none;margin-top:250px;margin-bottom:30px;border-left:0;border-right:0;box-shadow:0 -15px 65px #21182f30;backdrop-filter:blur(3px)}
 #adam-vista[data-layout=drawer] .va-reading:before,#adam-vista[data-layout=drawer] .va-reading:after{display:none}

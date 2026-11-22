@@ -15,16 +15,27 @@ export function activeDeployment(rows){
  return {deployment:current.id,version:current.versions[0].version_id};
 }
 export function assertUnchanged(before,after){if(JSON.stringify(before)!==JSON.stringify(after))throw Error('Production changed: stop without promotion');}
-export async function verifyContracts(fetchImpl=fetch){
+// Routes this release's own files define. They are checked only after promotion:
+// the version being replaced may still answer them the old way.
+export const releaseRoutes=[
+ ['https://adamrussin.com/events?release-check=1',301,'/events/?release-check=1'],
+ ['https://adamrussin.com/events.html?release-check=1',301,'/events/?release-check=1'],
+ ['https://adamrussin.com/photography?release-check=1',301,'/photography/?release-check=1'],
+ ['https://adamrussin.com/photography.html?release-check=1',301,'/photography/?release-check=1'],
+ ['https://adamrussin.com/index.html?release-check=1',301,'/?release-check=1'],
+ ['https://adamrussin.com/favicon.ico',301,'/favicon.svg'],
+ ['https://adamrussin.com/vista/?release-check=1',404,null],
+ ['https://adamrussin.com/vista/index.html?release-check=1',404,null]];
+export async function verifyContracts(fetchImpl=fetch,{released=true}={}){
  const result=await integrations.collect(fetchImpl);
  if(result.rows.some(r=>r.failures.length))throw Error('Preserved integration failed: '+result.rows.filter(r=>r.failures.length).map(r=>r.id).join(', '));
  const cases=[
  ['https://www.adamrussin.com/events?release-check=1&x=a%20b',301,'https://adamrussin.com/events?release-check=1&x=a%20b'],
  ['http://www.adamrussin.com/events?release-check=1&x=a%20b',301,'https://www.adamrussin.com/events?release-check=1&x=a%20b'],
- ['https://adamrussin.com/events.html?release-check=1',307,'/events?release-check=1'],
  ['https://adamrussin.com/goshen?release-check=1',404,null],
  ['https://adamrussin.com/goshen/?release-check=1',404,null],
- ...['/CNAME','/.env','/public-asset-manifest.json','/unlisted-release-check'].map(p=>['https://adamrussin.com'+p,404,null])];
+ ...['/CNAME','/.env','/_headers','/_redirects','/public-asset-manifest.json','/unlisted-release-check'].map(p=>['https://adamrussin.com'+p,404,null]),
+ ...(released?releaseRoutes:[])];
  for(const [url,status,location] of cases){const r=await fetchImpl(url,{method:'HEAD',credentials:'omit',redirect:'manual',signal:AbortSignal.timeout(20000)});await r.body?.cancel();if(r.status!==status||r.headers.get('location')!==location)throw Error('Route failed: '+url);}
  return {integrations:result.rows.length,routes:cases.length};
 }
@@ -44,7 +55,7 @@ export async function publish({root,build,wrangler,expectedVersion,expectedRevis
  if(JSON.stringify([...committedAllow].sort())!==JSON.stringify(manifest.files.map(e=>e.path).sort()))throw Error('Manifest differs from committed allowlist');
  for(const e of manifest.files){const b=fs.readFileSync(path.join(build,'public',e.path));const committed=execFileSync('git',['show','HEAD:'+e.path],{cwd:root,maxBuffer:26*1024*1024});if(!b.equals(committed))throw Error('Package differs from committed bytes: '+e.path);if(b.length!==e.size||crypto.createHash('sha256').update(b).digest('hex')!==e.sha256)throw Error('Package changed: '+e.path);}
  const config=JSON.parse(fs.readFileSync(path.join(root,'deploy/wrangler.content.json')));
- if(JSON.stringify(Object.keys(config).sort())!==JSON.stringify(['assets','compatibility_date','name','preview_urls','workers_dev'].sort())||config.name!=='adamrussin-website'||config.workers_dev!==false||config.preview_urls!==false||config.assets.html_handling!=='auto-trailing-slash'||config.assets.not_found_handling!=='none'||Object.keys(config.assets).length!==3)throw Error('Unreviewed Worker configuration');
+ if(JSON.stringify(Object.keys(config).sort())!==JSON.stringify(['assets','compatibility_date','name','preview_urls','workers_dev'].sort())||config.name!=='adamrussin-website'||config.workers_dev!==false||config.preview_urls!==false||config.assets.html_handling!=='auto-trailing-slash'||config.assets.not_found_handling!=='404-page'||Object.keys(config.assets).length!==3)throw Error('Unreviewed Worker configuration');
  config.assets.directory=path.join(build,'public');
  const configPath=path.join(build,'wrangler.content.json');fs.writeFileSync(configPath,JSON.stringify(config,null,2),{flag:'wx'});
  const env={...process.env,CLOUDFLARE_ACCOUNT_ID:'30f2b0382e0303b0f28cb2fe2e5c1320',WRANGLER_SEND_METRICS:'false',CI:'true',WRANGLER_LOG_PATH:path.join(build,'wrangler.log')};
@@ -54,7 +65,7 @@ export async function publish({root,build,wrangler,expectedVersion,expectedRevis
  const receipt={startedAt:new Date().toISOString(),revision:expectedRevision,before,status:'prepared'};
  const save=()=>fs.writeFileSync(path.join(build,'publication-receipt.json'),JSON.stringify(receipt,null,2));save();
  try{
-  receipt.preflight=await verifyContracts();save();
+  receipt.preflight=await verifyContracts(fetch,{released:false});save();
   const upload=cli(['versions','upload','--strict','--message',expectedRevision]);
   const match=upload.match(/(?:Worker |Current )?Version ID:\s*([a-f0-9-]{36})/);
   if(!match||!uuid.test(match[1]))throw Error('Cannot identify uploaded version; do not promote');

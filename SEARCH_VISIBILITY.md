@@ -4,8 +4,9 @@ The homepage, Events, and Photography are the only canonical pages in
 `sitemap.xml`. Their metadata describes each page without adding visible copy.
 Run `python tools/build-vista.py`, then `python tools/check-search.py` after edits.
 
-The Fitbit archive information pages (including privacy and terms) and the
-Vista development page retain their existing `noindex` tags. The separate
+The Fitbit archive information pages (including privacy and terms), the Vista
+development page and the 404 page carry `noindex` tags. The development page is
+no longer published, and the Fitbit pages were retired in October 2026. The separate
 maimai report service at `/maimai/` sends `X-Robots-Tag: noindex, nofollow,
 noarchive` on reports, history, downloads, and other responses. Keep that header
 when updating the report service. Removing its email gate does not remove it.

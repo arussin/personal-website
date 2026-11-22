@@ -3,10 +3,12 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
-const exact=new Set(['index.html','events.html','photography.html','favicon.svg','robots.txt','sitemap.xml','events/index.html','photography/index.html','vista/app.js','vista/content.js','vista/index.html','vista/sky.frag','vista/style.css','vista/asset-manifest.json']);
+// _headers and _redirects are Cloudflare control files: uploaded, parsed and never served.
+export const controlFiles=new Set(['_headers','_redirects']);
+const exact=new Set([...controlFiles,'index.html','404.html','favicon.svg','apple-touch-icon.png','robots.txt','sitemap.xml','events/index.html','photography/index.html','vista/app.js','vista/content.js','vista/sky.frag','vista/style.css']);
 export function publicPath(name){
  return typeof name==='string' && /^[A-Za-z0-9_./-]+$/.test(name) && !name.split('/').some(p=>!p||p==='.'||p==='..'||p.startsWith('.')) &&
- (exact.has(name)||/^(assets\/(photos|thumbs)\/|vista\/assets\/)[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp|svg|json)$/.test(name)||/^fitbit-archive\/[A-Za-z0-9_-]+\.(html|css)$/.test(name));
+ (exact.has(name)||/^(assets\/(photos|thumbs)\/|vista\/assets\/)[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp|svg|json|woff2)$/.test(name)||/^fitbit-archive\/[A-Za-z0-9_-]+\.(html|css)$/.test(name));
 }
 export function packageWorker(root,{outputDir,git=(args)=>execFileSync('git',args,{cwd:root,maxBuffer:26*1024*1024})}={}){
 const revision=git(['rev-parse','HEAD']).toString().trim();

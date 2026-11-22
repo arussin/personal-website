@@ -57,8 +57,34 @@ function renderPhotos(){
  root.querySelector('.va-photo-pager>span').textContent=String(sheet*6+1).padStart(2,'0')+'–'+String(Math.min(sheet*6+6,siteData.photos.length)).padStart(2,'0')+' / '+siteData.photos.length;
  root.querySelector('.va-sheet-prev').disabled=sheet===0;root.querySelector('.va-sheet-next').disabled=sheet===Math.floor((siteData.photos.length-1)/6);
 }
-function focusPhoto(index){selected=(index+siteData.photos.length)%siteData.photos.length;root.querySelector('.va-photo-focus').hidden=false;root.querySelector('.va-photo-grid').hidden=true;root.querySelector('.va-photo-pager').hidden=true;const img=root.querySelector('.va-full-photo');img.src=photoUrl(selected,false);img.alt='Photograph '+(selected+1)+' by Adam J. Russin';root.querySelector('.va-focus-index').textContent=String(selected+1).padStart(2,'0')+' / '+siteData.photos.length;say('Photograph '+(selected+1));}
-function returnSheet(){selected=-1;root.querySelector('.va-photo-focus').hidden=true;root.querySelector('.va-photo-grid').hidden=false;root.querySelector('.va-photo-pager').hidden=false;}
+// An enlarged photograph has its own history entry: Back returns to the contact
+// sheet, and keyboard focus moves with the view instead of dropping to the page.
+const photoFocus=root.querySelector('.va-photo-focus'),fullPhoto=root.querySelector('.va-full-photo');
+let sheetReturn=0;
+const validPhoto=index=>Number.isInteger(index)&&index>=0&&index<siteData.photos.length;
+function revealPhoto(){if(current==='photography'&&selected>=0)photoFocus.scrollIntoView({block:'nearest',behavior:reduced.matches?'instant':'smooth'});}
+fullPhoto.addEventListener('load',revealPhoto);
+function focusPhoto(index,{record=true}={}){
+ const opening=selected<0;selected=(index+siteData.photos.length)%siteData.photos.length;
+ photoFocus.hidden=false;root.querySelector('.va-photo-grid').hidden=true;root.querySelector('.va-photo-pager').hidden=true;
+ fullPhoto.src=photoUrl(selected,false);fullPhoto.alt='Photograph '+(selected+1)+' by Adam J. Russin';
+ root.querySelector('.va-focus-index').textContent=String(selected+1).padStart(2,'0')+' / '+siteData.photos.length;
+ if(record){const entry={...history.state,vista:'photography',photo:selected};if(opening)history.pushState(entry,'');else history.replaceState(entry,'');}
+ if(opening&&current==='photography'){root.querySelector('.va-photo-next').focus({preventScroll:true});revealPhoto();}
+ say('Photograph '+(selected+1));
+}
+function showSheet({focus=true}={}){
+ if(selected<0)return;
+ const last=selected;selected=-1;photoFocus.hidden=true;root.querySelector('.va-photo-grid').hidden=false;root.querySelector('.va-photo-pager').hidden=false;
+ sheet=Math.floor(last/6);renderPhotos();
+ if(focus&&current==='photography')root.querySelectorAll('.va-photo')[last%6]?.focus({preventScroll:true});
+}
+function returnSheet(){
+ if(selected<0||sheetReturn)return;
+ showSheet();
+ // Leave the photograph's history entry too. Its popstate clears the guard.
+ if(validPhoto(history.state?.photo)){sheetReturn=setTimeout(()=>{sheetReturn=0;},600);history.back();}
+}
 root.querySelector('.va-sheet-return').addEventListener('click',returnSheet);
 root.querySelector('.va-photo-prev').addEventListener('click',()=>focusPhoto(selected-1));root.querySelector('.va-photo-next').addEventListener('click',()=>focusPhoto(selected+1));
 root.querySelector('.va-sheet-prev').addEventListener('click',()=>{sheet--;renderPhotos();});root.querySelector('.va-sheet-next').addEventListener('click',()=>{sheet++;renderPhotos();});
@@ -138,8 +164,8 @@ function updateRouteMetadata(view){
  if(canonical)canonical.href='https://adamrussin.com'+(view==='home'?'/':'/'+view+'/');
 }
 async function navigate(view,trigger,{historyMode='push',instant=false}={}){
- if(view===current)return;
- if(historyMode==='push')history.pushState({vista:view},'',routeFor(view));
+ if(view===current||sheetReturn)return;
+ if(historyMode==='push'){if(view==='photography')showSheet({focus:false});history.pushState({vista:view},'',routeFor(view));}
  updateRouteMetadata(view);
  if(view==='home')await close();else await open(view,trigger,{instant});
  if(!instant&&productionRoutes&&typeof globalThis.gtag==='function')globalThis.gtag('event','page_view',{page_location:location.href,page_title:document.title});
@@ -152,11 +178,26 @@ root.querySelectorAll('[data-view]').forEach(b=>{
  });
 });
 root.querySelector('.va-close').addEventListener('click',()=>navigate('home'));
-window.addEventListener('popstate',()=>navigate(viewFromLocation(),null,{historyMode:'none'}));
-root.addEventListener('keydown',event=>{if(event.key==='Escape'&&current!=='home'){event.preventDefault();if(current==='photography'&&selected>=0)returnSheet();else navigate('home');}else if(current==='photography'&&selected>=0&&['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();focusPhoto(selected+(event.key==='ArrowLeft'?-1:1));}});
+function syncPhotoEntry(){const photo=history.state?.photo;if(validPhoto(photo)){if(photo!==selected)focusPhoto(photo,{record:false});}else showSheet();}
+window.addEventListener('popstate',()=>{
+ clearTimeout(sheetReturn);sheetReturn=0;
+ const view=viewFromLocation();if(view==='photography')syncPhotoEntry();
+ navigate(view,null,{historyMode:'none'});
+});
+// Listen on the document: hiding a clicked thumbnail or button moves focus to
+// the page body, where a listener on the scene itself would never hear the key.
+document.addEventListener('keydown',event=>{
+ if(event.defaultPrevented||event.altKey||event.ctrlKey||event.metaKey||current==='home')return;
+ if(event.key==='Escape'){event.preventDefault();if(current==='photography'&&selected>=0)returnSheet();else navigate('home');}
+ else if(current==='photography'&&selected>=0&&['ArrowLeft','ArrowRight'].includes(event.key)){
+  if(event.target instanceof Element&&event.target.closest('input,select,textarea'))return;
+  event.preventDefault();focusPhoto(selected+(event.key==='ArrowLeft'?-1:1));
+ }
+});
 history.replaceState({...history.state,vista:viewFromLocation()},'');
 const initialView=viewFromLocation();
 if(initialView!=='home')navigate(initialView,null,{historyMode:'none',instant:true});
+if(initialView==='photography')syncPhotoEntry();
 
 // Existing dotted glyph sampling and architectural projection, frozen intact for this study.
 const canvas=root.querySelector('.va-name'),ctx=canvas.getContext('2d');
@@ -494,7 +535,7 @@ function createSkyLayout(root){
  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
  const announce=text=>{root.querySelector('.va-announcement').textContent=text;};
  function select(item){selected=item;direction.value=item.direction;items.forEach(i=>i.link.dataset.selected=String(editing&&i===item));}
- function edit(value){editing=value;root.dataset.arranging=String(editing);toggle.textContent=editing?'Done':'Arrange sky';toggle.setAttribute('aria-pressed',String(editing));direction.hidden=reset.hidden=!editing;select(selected);announce(editing?'Drag a word to move it. Arrow keys make small adjustments.':'Sky arrangement finished.');}
+ function edit(value,silent=false){editing=value;root.dataset.arranging=String(editing);toggle.textContent=editing?'Done':'Arrange sky';toggle.setAttribute('aria-pressed',String(editing));direction.hidden=reset.hidden=!editing;select(selected);if(!silent)announce(editing?'Drag a word to move it. Arrow keys make small adjustments.':'Sky arrangement finished.');}
  toggle.addEventListener('click',()=>edit(!editing));
  function geometry(){
   frame=0;if(disposed)return;
@@ -578,7 +619,7 @@ function createSkyLayout(root){
  const observer=new ResizeObserver(scheduleGeometry);observer.observe(nav);items.forEach(i=>observer.observe(i.link));
  window.addEventListener('pagehide',event=>{cancelAnimationFrame(frame);frame=0;if(!event.persisted){disposed=true;observer.disconnect();}});
  window.addEventListener('pageshow',()=>{if(!disposed)scheduleGeometry();});
- edit(false);render();
+ edit(false,true);render();
  return {items,animate,refresh:scheduleGeometry,setTerrain:(edge,camera)=>{skyline=edge;getCamera=camera;scheduleGeometry();}};
 }
 const skyLayout=createSkyLayout(root);

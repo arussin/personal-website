@@ -8,7 +8,7 @@ const {chromium}=require(process.env.VISTA_PLAYWRIGHT_MODULE||'playwright');
   page.setDefaultTimeout(8000);
   await page.route('**/*googletagmanager.com/**',route=>route.abort());
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  for(const [path,view] of [['/events','Events'],['/events.html','Events'],['/events/index.html','Events'],['/photography','Photography'],['/photography.html','Photography']]){
+  for(const [path,view] of [['/events/','Events'],['/events','Events'],['/photography/','Photography'],['/photography','Photography']]){
    const response=await page.goto(base+path+'?debug-motion',{waitUntil:'domcontentloaded'});
    assert.equal(response.status(),200,path);
    await page.waitForFunction(()=>document.querySelector('#adam-vista').dataset.open==='true');
@@ -25,6 +25,7 @@ const {chromium}=require(process.env.VISTA_PLAYWRIGHT_MODULE||'playwright');
   }
   await page.goto(base+'/?debug-motion',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>window.vistaDebug?.snapshot().graphicsReady);
+  assert.equal(await page.locator('.va-announcement').textContent(),'','nothing is announced on load');
   await page.evaluate(()=>window.routeIdentity={});
   await page.locator('.va-events').click();await page.waitForTimeout(700);
   assert.equal(new URL(page.url()).pathname,'/events/');
@@ -47,6 +48,28 @@ const {chromium}=require(process.env.VISTA_PLAYWRIGHT_MODULE||'playwright');
   await page.locator('.va-github').hover();await page.waitForTimeout(1400);
   assert.equal(await page.locator('.va-sky-art [data-active="true"]').count(),1,'hover follows the extracted constellation');
   console.log('PASS history, expanded archive, live scene retention, and moon layer order');
+  // Enlarged photographs: keys after a mouse click, fit, focus and their own history entry.
+  await page.locator('.va-photography').click();await page.waitForTimeout(700);
+  await page.locator('.va-photo').nth(1).click();
+  await page.waitForFunction(()=>document.querySelector('.va-focus-index').textContent.startsWith('02'));
+  await page.keyboard.press('ArrowRight');
+  assert.ok((await page.locator('.va-focus-index').textContent()).startsWith('03'),'arrow keys work after a mouse click');
+  await page.waitForFunction(()=>{const img=document.querySelector('.va-full-photo');return img.complete&&img.naturalWidth>0;});
+  await page.waitForTimeout(700);
+  const photoBox=await page.locator('.va-photo-focus').boundingBox();
+  assert.ok(photoBox.y>=0&&photoBox.y+photoBox.height<=900,'the photograph and its controls fit the window');
+  await page.goBack();await page.waitForTimeout(300);
+  assert.equal(new URL(page.url()).pathname,'/photography/');
+  assert.equal(await page.locator('#adam-vista').getAttribute('data-open'),'true','Back keeps Photography open');
+  assert.equal(await page.locator('.va-photo-focus').isHidden(),true,'Back returns to the contact sheet');
+  await page.locator('.va-photo').nth(0).click();
+  await page.keyboard.press('Escape');await page.waitForTimeout(300);
+  assert.equal(await page.locator('.va-photo-focus').isHidden(),true,'Escape returns to the contact sheet');
+  assert.equal(await page.evaluate(()=>document.activeElement.className),'va-photo','focus returns to the thumbnail');
+  await page.keyboard.press('Escape');await page.waitForTimeout(650);
+  assert.equal(new URL(page.url()).pathname,'/');
+  assert.ok(await page.evaluate(()=>!!window.routeIdentity),'the photograph viewer never reloads the vista');
+  console.log('PASS photograph keys, fit, focus, and history');
   await page.setViewportSize({width:390,height:844});
   await page.locator('.va-events').click();await page.waitForTimeout(700);
   await page.locator('.va-earlier').scrollIntoViewIfNeeded();

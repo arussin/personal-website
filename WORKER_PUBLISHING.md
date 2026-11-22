@@ -15,6 +15,10 @@ The public website now runs on Cloudflare Worker **adamrussin-website** at
   concat("https://adamrussin.com", http.request.uri.path), preserving query strings.
 - Existing Always Use HTTPS handles HTTP before the HTTPS canonical redirect.
 - /events.html redirects 307 to /events, preserving its query and content.
+  (Superseded in November 2026: `_redirects` now sends /events, /events.html and
+  the photography equivalents to the trailing-slash routes with a 301, `_headers`
+  sets security and cache headers, and unknown URLs return `404.html`. The
+  publisher checks those routes only after promotion. See SITE_RELEASE.md.)
 
 All 79 live asset hashes, 21 static routing cases and 10 additional checks passed.
 The existing 12 integration checks passed unchanged. Mail DNS, FTP, maimai routing,
